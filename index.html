@@ -1,0 +1,3952 @@
+<!DOCTYPE html>
+
+<!-- SPDX-License-Identifier: GPL-3.0 -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ButeBreath</title>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#19d3c5" />
+  <style>
+    :root {
+      --bg: #000;
+      --card: #050505;
+      --text: #f2f2f2;
+      --muted: #b5b5b5;
+      --line: rgba(255, 255, 255, 0.10);
+      --shadow: 0 18px 70px rgba(0, 0, 0, 0.70);
+
+      --accent: #19d3c5;
+      --accentBorder: rgba(25, 211, 197, 0.42);
+      --glow: 0 0 0 3px rgba(25, 211, 197, 0.18);
+
+      --r-card: 18px;
+      --r-btn: 16px;
+    }
+
+    * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      overflow-x: hidden;
+      overflow-y: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .shell {
+      width: min(980px, 92vw);
+      margin: 0 auto;
+      padding: 14px 0 calc(14px + env(safe-area-inset-bottom));
+      height: 100dvh;
+      display: grid;
+      align-content: start;
+      gap: 14px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+    .shell { scrollbar-width: none; -ms-overflow-style: none; }
+    .shell::-webkit-scrollbar { width: 0; height: 0; }
+
+    .overall-progress { width: 100%; height: 4px; background: var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 4px; }
+    .progress-fill { height: 100%; width: 0%; background: var(--accent); transition: width 0.35s ease; }
+
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 10px 6px; }
+    .appName { font-size: 18px; font-weight: 900; letter-spacing: 0.2px; }
+
+    .burger {
+      width: 46px; height: 46px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.05);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+    }
+    .burgerLines span { display: block; width: 18px; height: 2px; background: rgba(255, 255, 255, 0.92); margin: 3px 0; border-radius: 4px; }
+
+    /* Reso behavior: fixed burger, safe-area aware */
+    .header { padding-right: 64px; }
+    .header .burger {
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 12px);
+      right: calc(env(safe-area-inset-right, 0px) + 12px);
+      z-index: 60;
+    }
+    .burgerFloat { display: none !important; }
+    body.drawerOpen .header .burger { visibility: hidden; }
+
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 14px; box-shadow: var(--shadow); }
+
+    .stage { padding: 18px 12px 16px 12px; background: #000; display: flex; flex-direction: column; align-items: center; position: relative; gap: 12px; }
+    .ringWrap { width: clamp(260px, 76vw, 380px); aspect-ratio: 1 / 1; display: grid; place-items: center; filter: drop-shadow(0 25px 90px rgba(0, 0, 0, 0.85)); position: relative; }
+    .core { position: absolute; width: 68%; aspect-ratio: 1 / 1; border-radius: 999px; background: #050505; border: 1px solid var(--line); box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.75); }
+    .ringOverlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5; text-align: center; gap: 4px; transform: translateY(-2%); pointer-events: none;  padding: 0 14px; }
+
+
+    .cue { font-size: 32px; font-weight: 950; letter-spacing: 0.3px; line-height: 1.05; max-width: 86%; margin: 0 auto; word-break: break-word; }
+
+    .subCue { font-size: 18px; color: #fff; line-height: 1.4; width: 94%; text-align: center; min-height: 60px; margin-top: 10px; font-weight: 700; opacity: 0.9; }
+
+    .timerLabel { font-size: 22px; font-weight: 900; color: var(--accent); margin-top: 5px; }
+    .pulse-input-box { margin-top: 10px; border-bottom: 2px solid var(--accent); padding: 4px; width: 86px; pointer-events: auto; }
+    .pulse-input-box input { width: 100%; background: transparent; border: none; color: var(--accent); font-size: 26px; font-weight: 900; text-align: center; outline: none; }
+    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+
+    svg { width: 100%; height: 100%; overflow: visible; }
+    .ringTrack { stroke: rgba(255, 255, 255, 0.10); stroke-width: 18; fill: none; }
+    .ringProgress { stroke: rgba(255, 255, 255, 0.85); stroke-width: 18; stroke-linecap: round; transition: stroke-dashoffset 90ms linear; fill: none; }
+
+    /* Drawer + overlay */
+    .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.72); display: none; z-index: 999; }
+    .overlay.open { display: block; }
+    .drawer {
+      position: fixed;
+      top: 0; right: 0;
+      width: min(360px, 88vw);
+      height: 100vh;
+      background: #000;
+      border-left: 1px solid var(--line);
+      transform: translateX(105%);
+      transition: 180ms ease;
+      z-index: 1000;
+      padding: 16px;
+    }
+    .drawer.open { transform: translateX(0); }
+    .drawerTop { display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; }
+    .drawerTitle { font-weight: 950; font-size: 18px; }
+
+    .menuItem { padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); margin-bottom: 10px; cursor: pointer; }
+    .menuItem.active { border-color: var(--accentBorder); background: rgba(25, 211, 197, 0.10); }
+    .menuName { font-weight: 950; font-size: 13px; }
+    .menuDesc { color: var(--muted); font-size: 12px; margin-top: 4px; line-height: 1.3; }
+    .divider { height: 1px; background: rgba(255,255,255,0.10); margin: 14px 0; border-radius: 999px; }
+    .tiny { font-size: 12px; color: rgba(255,255,255,0.70); line-height: 1.45; }
+
+    /* Buttons */
+    button {
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      cursor: pointer;
+      border-radius: var(--r-btn);
+      padding: 14px 12px;
+      font-weight: 950;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, opacity 120ms ease;
+    }
+    button:active { transform: scale(0.99); }
+    button:focus-visible { outline: none; box-shadow: var(--glow); border-color: var(--accentBorder); }
+    button:disabled { opacity: 0.45; cursor: default; transform: none; }
+    button.primary { border: 0; color: #000; background: #f2f2f2; }
+    button.primary:focus-visible { box-shadow: var(--glow); }
+    button.stop { border: 0; color: #fff; background: linear-gradient(135deg, #ff5c5c, #ff2f55); }
+
+    .selector { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .smallBtn { padding: 10px 10px; border-radius: 14px; font-size: 12px; font-weight: 900; box-shadow: none; }
+    .smallBtn.active,
+    .smallBtn.subtle.active {
+      background: var(--accent);
+      border-color: var(--accentBorder);
+      color: #000;
+    }
+    .smallBtn.active:hover,
+    .smallBtn.subtle.active:hover {
+      filter: brightness(1.03);
+    }
+
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .s-item { background: rgba(0, 0, 0, 0.35); padding: 10px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.10); }
+    .s-item label { display: block; font-size: 10px; color: var(--muted); margin-bottom: 4px; letter-spacing: 0.08em; }
+    .s-item input { width: 100%; background: transparent; border: none; color: var(--accent); font-size: 15px; text-align: center; font-weight: 800; outline: none; }
+    .s-item input:focus-visible { box-shadow: none; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+    .cardTitle h1 { margin: 0 0 10px 0; font-size: 18px; font-weight: 950; letter-spacing: 0.2px; }
+
+    .toggleGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .row.twoCol { grid-template-columns: 1fr 1fr; }
+
+    .subtle { background: rgba(255,255,255,0.05); }
+
+    .hidden { display: none !important; }
+    .locked { opacity: 0.30; pointer-events: none; }
+
+    /* Hide ring card when not on Practice */
+    .shell[data-page]:not([data-page="practice"]) #stageCard { display: none; }
+    /* Hide practice progress line when not on Practice */
+    .shell[data-page]:not([data-page="practice"]) .practiceProgress { display: none; }
+
+
+    @media (max-width: 720px) {
+      .row { grid-template-columns: 1fr; }
+      .row.twoCol { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 520px) {
+      .toggleGrid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 420px) {
+      .cue { font-size: 30px; }
+      .ringWrap { width: clamp(240px, 78vw, 340px); }
+      .subCue { font-size: 17px; min-height: 56px; }
+      button { padding: 13px 12px; }
+    }
+  
+    /* --- Reso-like form + settings helpers --- */
+    h2 {
+      font-size: 13px;
+      margin: 0;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+      color: rgba(255, 255, 255, 0.78);
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 10px;
+      margin-bottom: 6px;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 12px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(0, 0, 0, 0.42);
+      color: var(--text);
+      outline: none;
+      font-size: 14px;
+    }
+
+    /* Ensure custom settings inputs stay aqua (override generic input[type] rule) */
+    .s-item input {
+      background: transparent;
+      border: none;
+      color: var(--accent);
+      font-size: 15px;
+      text-align: center;
+      font-weight: 800;
+      outline: none;
+      box-shadow: none;
+      caret-color: var(--accent);
+    }
+    .s-item input:focus {
+      border: none;
+      box-shadow: none;
+    }
+
+
+    input:focus {
+      border-color: rgba(255, 255, 255, 0.22);
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+    }
+
+    .smallBtn.subtle {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .syncGrid {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .pwRow {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .rememberForgetRow{
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .syncRow {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .syncStatus {
+      margin-top: 0;
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    .dotOk { background: rgba(125, 255, 176, 0.90); }
+    .dotBad { background: rgba(255, 92, 92, 0.90); }
+
+
+        .historyCharts {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .historyChartCard {
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      background: rgba(0, 0, 0, 0.22);
+      padding: 12px 12px;
+    }
+
+    .historyChartHead {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .historyChart {
+      width: 100%;
+      height: 120px;
+      display: block;
+    }
+
+.sessionItem {
+      padding: 12px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      background: rgba(0, 0, 0, 0.28);
+      display: grid;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .sessionTop {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .sessionTitle {
+      font-weight: 950;
+      font-size: 13px;
+    }
+
+    .sessionMeta {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      margin-top: 3px;
+    }
+
+    .sessionActions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+
+    /* Practice custom settings drawer (Reso-like) */
+    .drawerOverlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+      padding-top: calc(16px + env(safe-area-inset-top));
+      padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    }
+    .drawerOverlay.hidden{ display: none; }
+    .drawerSheet{
+      width: min(560px, 100%);
+      background: rgba(20,20,20,0.92);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+
+      transform: translateY(-50px);
+      opacity: 0;
+      transition: transform 180ms ease, opacity 180ms ease;
+    }
+    .drawerOverlay:not(.hidden) .drawerSheet{
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Custom drawer layout: one setting per row */
+    .drawerSheet .settings-grid{
+      grid-template-columns: 1fr !important;
+      gap: 12px;
+    }
+    .drawerHeader{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 10px;
+    }
+    .drawerTitle{
+      font-weight: 900;
+      font-size: 16px;
+      letter-spacing: 0.2px;
+    }
+    .advancedRow{
+      display:flex;
+      justify-content:center;
+      margin-top: 10px;
+    }
+
+    /* ---------------- Instructions (tabs + readability) ---------------- */
+    .instrTabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .instrTab {
+      flex: 1;
+      padding: 10px 10px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 950;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.05);
+      box-shadow: none;
+    }
+    .instrTab.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #000;
+      box-shadow: var(--glow), 0 10px 28px rgba(0, 0, 0, 0.55);
+    }
+    .instrPanel { display: none; }
+    .instrPanel.active { display: block; }
+    .instrH2 { margin: 12px 0 6px 0; font-size: 14px; font-weight: 950; }
+    .instrH3 { margin: 10px 0 6px 0; font-size: 13px; font-weight: 900; color: rgba(255, 255, 255, 0.78); letter-spacing: 0.2px; }
+    .instrP { color: rgba(255,255,255,0.92); font-size: 13px; line-height: 1.55; margin: 8px 0; }
+    .instrPanel ul, .instrPanel ol { margin: 8px 0 10px 18px; padding: 0; color: rgba(255,255,255,0.92); font-size: 13px; line-height: 1.55; }
+    .instrPanel li { margin: 6px 0; }
+    .instrPanel ul ul, .instrPanel ol ul { margin-top: 6px; margin-bottom: 6px; }
+    .tipBox { border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04); border-radius: 16px; padding: 12px; margin: 10px 0 14px; }
+    .tipTitle { font-weight: 950; font-size: 12px; letter-spacing: 0.1px; margin-bottom: 6px; color: rgba(255,255,255,0.86); }
+    .tipBox ul { margin: 0 0 0 18px; }
+    .dividerThin { height: 1px; background: rgba(255,255,255,0.10); margin: 14px 0; border-radius: 999px; }
+
+  
+    /* Toast */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    max-width: min(92vw, 520px);
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(18, 18, 18, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text);
+    box-shadow: 0 14px 60px rgba(0, 0, 0, 0.55);
+    z-index: 9999;
+    font-size: 13px;
+    line-height: 1.25;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .toast.hidden { display: none; }
+  
+  /* Large centered toast for important notifications (e.g., updates) */
+  .toast.toast-large {
+    top: 50%;
+    bottom: auto;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(420px, 88vw);
+    max-width: 420px;
+    padding: 22px 24px;
+    border-radius: 18px;
+    font-size: 16px;
+    font-weight: 900;
+    line-height: 1.4;
+    background: rgba(10, 10, 10, 0.95);
+    border: 1px solid rgba(25, 211, 197, 0.32);
+    box-shadow: 0 24px 90px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(25, 211, 197, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  
+  .toast .toastMsg { flex: 0 1 auto; }
+  .toast .toastBtn {
+    flex: 0 0 auto;
+    margin-left: 6px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.06);
+    color: var(--text);
+    font-weight: 800;
+    cursor: pointer;
+    user-select: none;
+  }
+  .toast .toastBtn:active { transform: translateY(1px); }
+
+  /* Offline banner */
+  .offlineBanner {
+    position: fixed;
+    left: 50%;
+    top: calc(env(safe-area-inset-top, 0px) + 10px);
+    transform: translateX(-50%);
+    max-width: min(92vw, 520px);
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgba(255, 92, 92, 0.18);
+    border: 1px solid rgba(255, 92, 92, 0.32);
+    color: var(--text);
+    box-shadow: 0 14px 60px rgba(0, 0, 0, 0.45);
+    z-index: 9999;
+    font-size: 12px;
+    line-height: 1.25;
+    text-align: center;
+  }
+  .offlineBanner.hidden { display: none; }
+
+</style>
+
+</head>
+<body>
+  <div class="overlay" id="overlay"></div>
+
+  <div class="drawer" id="drawer">
+    <div class="drawerTop">
+      <div class="drawerTitle">ButeBreath</div>
+      <button class="smallBtn subtle" id="closeMenu" type="button" style="width:92px;">Close</button>
+    </div>
+
+    <div class="menuItem active" data-page="practice">
+      <div class="menuName">Practice</div>
+      <div class="menuDesc">Session flow</div>
+    </div>
+    <div class="menuItem" data-page="instructions">
+      <div class="menuName">Instructions</div>
+      <div class="menuDesc">How to do it</div>
+    </div>
+    <div class="menuItem" data-page="settings">
+      <div class="menuName">Settings</div>
+      <div class="menuDesc">Cues and preferences</div>
+    </div>
+    <div class="menuItem" data-page="history">
+      <div class="menuName">History</div>
+      <div class="menuDesc">Sessions log</div>
+    </div>
+    <div class="menuItem" data-page="about">
+      <div class="menuName">About</div>
+      <div class="menuDesc">App info</div>
+    </div>
+  </div>
+
+  <div class="shell" data-page="practice" id="shell">
+    <div class="header">
+      <div class="appName">ButeBreath</div>
+      <button class="burger" id="openMenu" aria-label="Menu"><div class="burgerLines"><span></span><span></span><span></span></div></button>
+    </div>
+    <button class="burger burgerFloat" id="openMenuFloat" aria-label="Menu"><div class="burgerLines"><span></span><span></span><span></span></div></button>
+
+    <div class="practiceProgress">
+      <div class="overall-progress"><div id="pBar" class="progress-fill"></div></div>
+      <div id="stepCounter" style="font-size: 11px; color: var(--muted); text-align: right; font-weight: 900; margin-top:4px;">READY</div>
+    </div>
+
+    <div class="card stage" id="stageCard">
+      <div class="ringWrap" id="ringWrap">
+        <div class="ringOverlay">
+          <div id="cueLabel" class="cue">Ready</div>
+          <div id="timerLabel" class="timerLabel">0s</div>
+          <div id="pulseInputArea" class="pulse-input-box hidden">
+            <input type="number" id="pulseValue" placeholder="BPM" inputmode="numeric" min="40" max="200" step="1">
+          </div>
+        </div>
+        <div class="core"></div>
+        <svg viewBox="0 0 340 340" aria-hidden="true">
+          <circle cx="170" cy="170" r="140" class="ringTrack"></circle>
+          <circle id="ringProgress" cx="170" cy="170" r="140" class="ringProgress" transform="rotate(-90 170 170)"></circle>
+        </svg>
+      </div>
+      <div id="subCueLabel" class="subCue">Select a method to begin</div>
+    </div>
+
+    <div class="card">
+      <div class="page active" id="page-practice">
+
+        
+        <div class="selector" style="margin-bottom:18px;">
+          <button id="m1" class="smallBtn active" type="button">Method 1</button>
+          <button id="m2" class="smallBtn" type="button">Method 2</button>
+          <button id="mCP" class="smallBtn" type="button">Morning CP</button>
+        </div>
+
+        <div id="boxM1">
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:10px;">
+            <button id="p1" class="smallBtn active" type="button">Preset</button>
+            <button id="c1" class="smallBtn" type="button">Custom</button>
+          </div>
+        </div>
+
+        <div id="boxM2" class="hidden">
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:10px;">
+            <button id="p2" class="smallBtn active" type="button">Preset</button>
+            <button id="c2" class="smallBtn" type="button">Custom</button>
+          </div>
+        </div>
+
+        <div id="boxCP" class="hidden"></div>
+        <div style="margin-top: 15px; display:grid; grid-template-columns: 2fr 1fr; gap:10px;">
+          <button id="startBtn" class="primary" type="button">Start</button>
+          <button class="stop" id="resetBtn" type="button">Reset</button>
+        </div>
+      </div>
+
+      
+      <div class="page" id="page-settings">
+        <div class="cardTitle"><h1>Settings</h1></div>
+
+        <div class="toggleGrid">
+          <button class="smallBtn subtle" id="toggleSoundBtn" type="button">Sound: <span id="soundState">On</span></button>
+          <button class="smallBtn subtle" id="toggleWakeBtn" type="button">Wake lock: <span id="wakeState">On</span></button>
+        </div>
+
+        <div class="divider"></div>
+
+        <h2>CouchDB sync (optional)</h2>
+        <div class="syncGrid">
+          <div>
+            <label>Server URL</label>
+            <input id="couchUrl" placeholder="https://couch.example.com" type="text"/>
+          </div>
+          <div>
+            <label>Database name</label>
+            <input id="couchDbName" placeholder="butebreath" type="text"/>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:end;">
+            <div>
+              <label>Username</label>
+              <input id="couchUser" placeholder="username" type="text"/>
+            </div>
+            <div>
+              <label>Password</label>
+              <div class="pwRow">
+                <input id="couchPass" placeholder="password" type="password"/>
+                <button aria-label="Toggle password visibility" class="smallBtn subtle" id="pwToggleBtn" type="button">ðŸ‘</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:8px;">
+            <input id="rememberPass" style="display:none" type="checkbox"/>
+            <div class="rememberForgetRow">
+              <button class="smallBtn subtle" id="rememberPassBtn" style="justify-content:flex-start;gap:10px;" type="button">
+                Remember password: <span id="rememberPassState" style="font-weight:950;">Off</span>
+              </button>
+              <button class="smallBtn subtle" id="forgetPassBtn" style="background:rgba(255,92,92,0.14);border-color:rgba(255,92,92,0.28);" type="button">
+                Forget Stored Password
+              </button>
+            </div>
+            <div class="tiny" style="margin-top:6px;line-height:1.45;">
+              Warning: If enabled, the CouchDB password is stored locally in a cookie for 14 days.
+              Do not use on public/shared machines. Anyone with device access can read it.
+            </div>
+          </div>
+
+          <div class="syncRow" style="margin-top:10px;">
+            <div class="syncStatus">
+              <span class="dot" id="syncDot"></span>
+              <span id="syncText">Not connected</span>
+            </div>
+            <button class="smallBtn subtle" id="syncBtn" type="button">Connect</button>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+</div>
+
+      
+      <div class="page" id="page-instructions">
+        <div class="cardTitle"><h1>Buteyko Breathing Exercises: Instructions</h1></div>
+
+        <div class="instrTabs" role="tablist" aria-label="Instructions tabs">
+          <button class="instrTab active" type="button" data-instr-tab="general" role="tab" aria-selected="true">General</button>
+          <button class="instrTab" type="button" data-instr-tab="m1" role="tab" aria-selected="false">Method 1</button>
+          <button class="instrTab" type="button" data-instr-tab="m2" role="tab" aria-selected="false">Method 2</button>
+        </div>
+
+        <div class="instrPanel active" data-instr-panel="general" role="tabpanel">
+          <div class="tipBox">
+            <div class="tipTitle">Quick checklist</div>
+            <ul>
+              <li>Sit upright, spine straight, shoulders relaxed.</li>
+              <li>Nose only, belly only. Keep everything soft.</li>
+              <li>Stay relaxed and keep a light sense of air hunger during practice.</li>
+              <li>Practice on an empty stomach.</li>
+              <li>Track progress mainly with Control Pause (CP), plus pulse at start and end.</li>
+            </ul>
+          </div>
+
+          <div class="instrH3">Posture and breathing rules</div>
+          <ul>
+            <li>Maintain an upright seated position with a straight spine.</li>
+            <li>Breathe gently using only your belly and diaphragm (avoid chest breathing).</li>
+            <li>Keep your mouth closed and breathe only through your nose.</li>
+            <li>Release all muscle tension.
+              <ul>
+                <li>Let the chest and abdomen drop naturally.</li>
+                <li>Do not force air out.</li>
+              </ul>
+            </li>
+            <li>Over time, notice your breathing becoming slower and lighter.</li>
+          </ul>
+
+          <div class="instrH3">Timing</div>
+          <ul>
+            <li>Practice on an empty stomach (wait two hours after eating).</li>
+            <li>Allow at least two hours between sessions.</li>
+          </ul>
+
+          <div class="dividerThin"></div>
+
+          <div class="instrH2">Control Pause (CP)</div>
+          <p class="instrP">CP indicates your CO2 tolerance and is the main progress marker in the Buteyko Method.</p>
+
+          <div class="instrH3">How to measure CP</div>
+          <ol>
+            <li>Sit calmly for 2 to 4 minutes first (resting breathing and heart rate).</li>
+            <li>After a normal inhale and exhale, pinch your nose.</li>
+            <li>Start timing immediately.</li>
+            <li>Stop timing at the first clear urge to breathe, or the first involuntary movement of your breathing muscles.</li>
+            <li>Resume breathing gently and normally through the nose.
+              <ul>
+                <li>If you need to breathe faster or take a deep breath, you held too long and the measurement is invalid.</li>
+              </ul>
+            </li>
+          </ol>
+
+          <div class="dividerThin"></div>
+
+          <div class="instrH2">Pulse (heart rate)</div>
+          <p class="instrP">At the beginning and end of each session, measure and record your pulse. Ideally, your pulse will be lower at the end than at the beginning.</p>
+          <p class="instrP">If your pulse is higher at the end, rest for 5 to 15 minutes and check again. If it remains higher, it may indicate that you are overdoing the practice or not performing the exercise correctly.</p>
+
+          <div class="dividerThin"></div>
+
+          <div class="instrH2">Morning CP option</div>
+          <ul>
+            <li>The most objective CP is taken immediately after waking up, before getting out of bed.</li>
+            <li>Use Morning CP mode to record this daily baseline.</li>
+            <li>Tracking Morning CP in History is one of the cleanest ways to monitor long term progress.</li>
+          </ul>
+        </div>
+
+        <div class="instrPanel" data-instr-panel="m1" role="tabpanel">
+          <div class="instrH2">Method 1</div>
+
+          <div class="instrH3">Definitions</div>
+          <ul>
+            <li><strong>Intermediate Breath Hold:</strong> A hold performed immediately after a cycle of reduced breathing. It is similar to the CP but typically shorter.</li>
+            <li><strong>Reduced Breathing Cycle:</strong> A rhythm that creates light air hunger:
+              <ul>
+                <li>Inhale: 1 second (abdomen)</li>
+                <li>Exhale: 2 seconds (release tension)</li>
+                <li>Hold: 1 to 15 seconds after exhale (mini-pause)</li>
+              </ul>
+            </li>
+          </ul>
+
+          <div class="instrH3">Typical session flow</div>
+          <ol>
+            <li><strong>Baseline</strong>
+              <ul>
+                <li>Initial pulse (BPM)</li>
+                <li>Initial CP (after 2 to 4 minutes resting)</li>
+              </ul>
+            </li>
+            <li><strong>Main exercise</strong> (repeat for X cycles)
+              <ul>
+                <li>Reduced breathing for several minutes, maintaining light air hunger</li>
+                <li>Intermediate Breath Hold immediately after the cycle</li>
+              </ul>
+            </li>
+            <li><strong>Finish</strong>
+              <ul>
+                <li>Cool down: 2 minutes calm nasal breathing (no over-breathing)</li>
+              </ul>
+            </li>
+            <li><strong>Final assessment</strong>
+              <ul>
+                <li>Final CP to confirm improvement</li>
+                <li>Final pulse (aim for equal or lower than initial)</li>
+              </ul>
+            </li>
+          </ol>
+        </div>
+
+        <div class="instrPanel" data-instr-panel="m2" role="tabpanel">
+          <div class="instrH2">Method 2</div>
+
+          <div class="instrH3">Definitions</div>
+          <ul>
+            <li><strong>Very Shallow Breathing (VSB):</strong> Gentle belly breathing that sustains mild air hunger. Reduce inhale depth, keep exhale natural.</li>
+            <li><strong>Maximum Pause (MP):</strong> A long breath-hold held as long as possible:
+              <ul>
+                <li>MP1 (light): seated upright</li>
+                <li>MP2 (medium): add gentle rocking and twisting</li>
+                <li>MP3 (full): stand up and walk</li>
+              </ul>
+            </li>
+            <li><strong>Suppress:</strong> Immediately after an MP, use very rapid, shallow breaths to resist deep inhalation.</li>
+            <li><strong>Recovery:</strong> Return to natural nasal breathing until air hunger fades.</li>
+          </ul>
+
+          <div class="instrH3">Typical session flow (MP sequence)</div>
+          <div class="tiny" style="margin:6px 0 10px 0;">Defaults: VSB 180s, Recovery 30s, Suppress 10s. MP2 uses 2× Suppress. MP3 uses 3× Suppress. Recovery after MP2 and MP3 uses 2×.</div>
+          <ol>
+            <li><strong>Baseline</strong>
+              <ul>
+                <li>Initial pulse (BPM)</li>
+                <li>Initial CP</li>
+              </ul>
+            </li>
+            <li><strong>Build-up</strong>
+              <ul>
+                <li>VSB to create mild air hunger</li>
+                <li>Recovery to stabilize before the first hold</li>
+              </ul>
+            </li>
+            <li><strong>Progressive MP stages</strong>
+              <ul>
+                <li><strong>Stage A</strong>
+                  <ul>
+                    <li>MP1</li>
+                    <li>Suppress (normal duration)</li>
+                    <li>VSB</li>
+                    <li>Recovery</li>
+                  </ul>
+                </li>
+                <li><strong>Stage B</strong>
+                  <ul>
+                    <li>MP2 (rocking/twisting)</li>
+                    <li>Suppress (double duration)</li>
+                    <li>VSB</li>
+                    <li>Recovery</li>
+                  </ul>
+                </li>
+                <li><strong>Stage C</strong>
+                  <ul>
+                    <li>MP3 (walking)</li>
+                    <li>Suppress (triple duration)</li>
+                    <li>VSB</li>
+                    <li>Recovery (double duration)</li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li><strong>Final assessment</strong>
+              <ul>
+                <li>Final CP to track progress</li>
+                <li>Final pulse (aim for equal or lower than start)</li>
+              </ul>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+
+      <div class="page" id="page-history">
+        <div class="cardTitle"><h1>History</h1></div>
+
+        <div class="historyCharts">
+          <div class="historyChartCard">
+            <div class="historyChartHead"><div class="tiny">Morning CP (last 14 days)</div></div>
+            <canvas id="chartMorning" class="historyChart"></canvas>
+          </div>
+
+          <div class="historyChartCard">
+            <div class="historyChartHead">
+              <div class="tiny" id="deltaChartTitle">ΔCP per day (last 14 days)</div>
+              <div style="display:flex; gap:8px; align-items:center; justify-content:flex-end;">
+                <button class="smallBtn subtle active" id="deltaTabCp" type="button">ΔCP</button>
+                <button class="smallBtn subtle" id="deltaTabPulse" type="button">ΔPulse</button>
+              </div>
+            </div>
+            <canvas id="chartDelta" class="historyChart"></canvas>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:8px;">
+          <button class="smallBtn subtle" id="exportBtn" type="button">Export JSON</button>
+          <button class="smallBtn subtle" id="importBtn" type="button">Import JSON</button>
+        </div>
+        <input accept="application/json,json" id="importFile" style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;" type="file"/>
+
+        <div class="tiny" id="historyHint" style="margin-top:10px;">Loadingâ€¦</div>
+        <div id="historyList" style="margin-top:12px;display:flex;flex-direction:column;gap:10px;"></div>
+        <div class="row" style="margin-top:10px;">
+          <button class="smallBtn subtle" id="historyMoreBtn" type="button">Load more</button>
+        </div>
+      </div>
+
+<div class="page" id="page-about">
+  <div class="cardTitle"><h1>About</h1></div>
+  <div class="tiny" style="font-size:16px;color:rgba(255,255,255,0.92);line-height:1.75;">
+    <p style="margin-top:0;">
+      ButeBreath is a clean, fully customizable Buteyko breathing practice app.
+    </p>
+
+    <p style="margin:10px 0 5px 0; color:rgba(255,255,255,0.92);">
+      The methods are based on:
+    </p>
+    <ul style="margin:0 0 15px 18px; padding:0; list-style-type: disc; color:rgba(255,255,255,0.85); font-size:15px;">
+      <li style="margin-bottom:8px;">
+        <strong>Method 1:</strong> 
+        <a href="https://www.normalbreathing.com/" rel="noopener" target="_blank" style="color:var(--accent); text-decoration:none;">https://www.normalbreathing.com/</a> & 
+        <a href="https://www.goodreads.com/book/show/20550462-advanced-buteyko-breathing-exercises" rel="noopener" target="_blank" style="color:var(--accent); text-decoration:none;">Advanced Buteyko Exercises (Book)</a>
+      </li>
+      <li>
+        <strong>Method 2:</strong> 
+        <a href="https://breathe.adam.nz/" rel="noopener" target="_blank" style="color:var(--accent); text-decoration:none;">https://breathe.adam.nz/</a>
+      </li>
+    </ul>
+
+    <p style="margin:10px 0 0 0;color:rgba(255,255,255,0.92);">
+      For more information, visit
+      <a href="https://github.com/breath-tools/butebreath" rel="noopener" style="color:var(--accent);text-decoration:none;font-weight:900;" target="_blank">
+        breath-tools/butebreath
+      </a><span style="opacity:0.65;font-weight:900;margin-left:6px;font-size:13px;">↗</span>
+    </p>
+
+    <div class="divider" style="margin:18px 0; border-top: 1px solid rgba(255,255,255,0.1);"></div>
+
+    <p style="margin:0;color:rgba(255,255,255,0.92);">
+      This app is a Progressive Web App (PWA). You can install it on your device for faster launch and offline use.
+    </p>
+    <ul style="margin:10px 0 0 18px;padding:0;color:rgba(255,255,255,0.88);line-height:1.55;">
+      <li>Android (Chrome): Menu → Install app</li>
+      <li>iOS (Safari): Share → Add to Home Screen</li>
+      <li>Desktop (Chrome/Edge): Install icon in the address bar</li>
+    </ul>
+
+    <div class="divider" style="margin:18px 0; border-top: 1px solid rgba(255,255,255,0.1);"></div>
+
+    <p style="margin:0;color:rgba(255,255,255,0.72);font-weight:900;font-size:14px;">
+      Version 1.0 - Licensed under the GNU GPL v3
+    </p>
+  </div>
+</div>
+  <!-- Practice custom settings drawer -->
+  <div aria-hidden="true" class="drawerOverlay hidden" id="practiceCustomDrawer">
+    <div aria-label="Custom settings" aria-modal="true" class="drawerSheet" role="dialog">
+      <div class="drawerHeader">
+        <div class="drawerTitle" id="practiceCustomTitle">Custom settings</div>
+        <button aria-label="Close custom settings" class="smallBtn subtle" id="closePracticeCustomBtn" type="button">Close</button>
+      </div>
+
+      <div class="drawerBody">
+        <div id="customM1Fields">
+          <div class="settings-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+            <div class="s-item"><label>Cycles</label><input type="number" id="inC1" value="3" min="1"></div>
+            <div class="s-item"><label>Reduced breathing (sec)</label><input type="number" id="inRB1" value="180" min="0"></div>
+            <div class="s-item"><label>Cool down (sec)</label><input type="number" id="inCL1" value="120" min="0"></div>
+          </div>
+        </div>
+
+        <div id="customM2Fields" class="hidden">
+          <div class="settings-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+            <div class="s-item"><label>Very shallow breathing (sec)</label><input type="number" id="inRB2" value="180" min="0"></div>
+            <div class="s-item"><label>Recovery (sec) (MP2 and MP3 use 2×)</label><input type="number" id="inRC2" value="30" min="0"></div>
+            <div class="s-item"><label>Suppress (sec) (MP2 uses 2×, MP3 uses 3×)</label><input type="number" id="inSUP2" value="10" min="0"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+    <div id="offlineBanner" class="offlineBanner hidden" role="status" aria-live="polite">Offline. Sync paused.</div>
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="./pouchdb.min.js" onerror="(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/pouchdb@9.0.0/dist/pouchdb.min.js';document.head.appendChild(s);})();"></script>
+
+  <script>
+    (function () {
+      "use strict";
+
+      /* ---------------- Settings (local) ---------------- */
+      const SETTINGS_KEY = "butebreath_settings_v3";
+      const SESSION_STORE_KEY = "butebreath_sessions_local_v1";
+
+      
+const COUCH_PASS_COOKIE_KEY = "butebreath_couch_pass_cookie_v1";
+const COUCH_PASS_COOKIE_DAYS = 14;
+function debounce(fn, ms) {
+        let t = null;
+        return (...args) => {
+          if (t) clearTimeout(t);
+          t = setTimeout(() => fn(...args), ms);
+        };
+      }
+
+      function safeJsonParse(raw, fallback) {
+        try { return JSON.parse(raw); } catch (e) { return fallback; }
+      }
+
+      /* ---------------- Input Validation Helpers ---------------- */
+      function sanitizeUrl(url) {
+        if (!url || typeof url !== "string") return null;
+        try {
+          const parsed = new URL(url);
+          // Only allow http and https protocols
+          if (!["http:", "https:"].includes(parsed.protocol)) return null;
+          return parsed.href;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function sanitizeNumber(value, min, max, defaultValue) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return defaultValue;
+        return Math.max(min, Math.min(max, num));
+      }
+
+      // Sanitize numeric input from text fields (removes non-digit chars first)
+      function sanitizeNumericInput(value, min = 0, max = 999, defaultValue = 0) {
+        if (value == null || value === '') return defaultValue;
+        // Remove any non-digit characters except minus sign at start
+        const cleaned = String(value).replace(/[^\d-]/g, '').replace(/(?!^)-/g, '');
+        const num = parseInt(cleaned, 10);
+        if (isNaN(num) || !Number.isFinite(num)) return defaultValue;
+        return Math.max(min, Math.min(max, num));
+      }
+
+      /* ---------------- Cleanup Management (Memory Leak Prevention) ---------------- */
+      const cleanupFns = [];
+      
+      /**
+       * Add event listener with automatic cleanup tracking
+       * @param {EventTarget} target - Element or window
+       * @param {string} event - Event name
+       * @param {Function} handler - Event handler function
+       * @param {Object} options - Event listener options
+       */
+      function addManagedListener(target, event, handler, options) {
+        target.addEventListener(event, handler, options);
+        cleanupFns.push(() => {
+          try {
+            target.removeEventListener(event, handler, options);
+          } catch (e) {
+            console.error('Cleanup error:', e);
+          }
+        });
+      }
+      
+      /**
+       * Execute all cleanup functions
+       */
+      function executeCleanup() {
+        console.log(`Executing ${cleanupFns.length} cleanup functions...`);
+        let cleaned = 0;
+        cleanupFns.forEach(fn => {
+          try {
+            fn();
+            cleaned++;
+          } catch (e) {
+            console.error('Cleanup function error:', e);
+          }
+        });
+        cleanupFns.length = 0;
+        console.log(`Cleaned up ${cleaned} resources`);
+      }
+      
+      /**
+       * Cleanup on page unload
+       */
+      function cleanupOnUnload() {
+        // Stop timer worker
+        if (tWorker) {
+          try {
+            tWorker.postMessage({ cmd: 'stop' });
+            tWorker.terminate();
+            tWorker = null;
+          } catch (e) {
+            console.error('Worker cleanup error:', e);
+          }
+        }
+        
+        // Cancel animation frame
+        if (renderState && renderState.rafId) {
+          try {
+            cancelAnimationFrame(renderState.rafId);
+            renderState.rafId = 0;
+          } catch (e) {
+            console.error('RAF cleanup error:', e);
+          }
+        }
+        
+        // Stop sync
+        if (typeof syncHandler !== 'undefined' && syncHandler && syncHandler.cancel) {
+          try {
+            syncHandler.cancel();
+          } catch (e) {
+            console.error('Sync cleanup error:', e);
+          }
+        }
+        
+        // Close database
+        if (typeof db !== 'undefined' && db && db.close) {
+          try {
+            db.close();
+          } catch (e) {
+            console.error('DB cleanup error:', e);
+          }
+        }
+        
+        // Execute managed cleanup functions
+        executeCleanup();
+      }
+
+      const settings = {
+        sound: true,
+        wakeLock: true,
+
+        couchUrl: "",
+        couchDbName: "butebreath",
+        couchUser: "",
+        couchPass: "",
+        rememberPass: false
+      };
+
+      
+function cookieSet(name, value, days) {
+  try {
+    const maxAge = Math.max(0, Math.floor(Number(days || 0) * 24 * 60 * 60));
+    const v = encodeURIComponent(String(value || ""));
+    const n = encodeURIComponent(String(name || ""));
+    const exp = new Date(Date.now() + (maxAge * 1000)).toUTCString();
+    let s = `${n}=${v}; Max-Age=${maxAge}; Expires=${exp}; Path=/; SameSite=Strict`;
+    if (location.protocol === "https:") s += "; Secure";
+    document.cookie = s;
+  } catch (e) { }
+}
+
+function cookieGet(name) {
+  try {
+    const n = encodeURIComponent(String(name || "")) + "=";
+    const parts = String(document.cookie || "").split(";");
+    for (const p of parts) {
+      const t = p.trim();
+      if (t.startsWith(n)) return decodeURIComponent(t.slice(n.length));
+    }
+  } catch (e) { }
+  return "";
+}
+
+function cookieDel(name) {
+  try {
+    const n = encodeURIComponent(String(name || ""));
+    let s = `${n}=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/; SameSite=Strict`;
+    if (location.protocol === "https:") s += "; Secure";
+    document.cookie = s;
+  } catch (e) { }
+}
+
+function loadCouchPassCookie() {
+  try {
+    if (!settings.rememberPass) return;
+    const p = cookieGet(COUCH_PASS_COOKIE_KEY);
+    if (p) settings.couchPass = p;
+  } catch (e) { }
+}
+
+function saveCouchPassCookie(pass) {
+  try {
+    if (!settings.rememberPass) return;
+    const p = String(pass || "");
+    if (!p) { cookieDel(COUCH_PASS_COOKIE_KEY); return; }
+    cookieSet(COUCH_PASS_COOKIE_KEY, p, COUCH_PASS_COOKIE_DAYS);
+  } catch (e) { }
+}
+
+function clearCouchPassStored(clearCookieToo) {
+  if (clearCookieToo) cookieDel(COUCH_PASS_COOKIE_KEY);
+  settings.couchPass = "";
+}
+
+      function readSettingsSnapshot() {
+        return {
+          sound: !!settings.sound,
+          wakeLock: !!settings.wakeLock,
+          couchUrl: String(settings.couchUrl || ""),
+          couchDbName: String(settings.couchDbName || "butebreath"),
+          couchUser: String(settings.couchUser || ""),
+          /* do not persist password */
+          couchPass: "",
+          rememberPass: !!settings.rememberPass
+        };
+      }
+
+      function applySettingsSnapshot(s) {
+        if (!s || typeof s !== "object") return;
+        if (typeof s.sound === "boolean") settings.sound = s.sound;
+        if (typeof s.wakeLock === "boolean") settings.wakeLock = s.wakeLock;
+
+        if (typeof s.couchUrl === "string") settings.couchUrl = s.couchUrl;
+        if (typeof s.couchDbName === "string") settings.couchDbName = s.couchDbName;
+        if (typeof s.couchUser === "string") settings.couchUser = s.couchUser;
+        if (typeof s.rememberPass === "boolean") settings.rememberPass = s.rememberPass;
+      }
+
+      function saveSettingsLocal() {
+        try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(readSettingsSnapshot())); } catch (e) { }
+      }
+      const saveSettingsLocalDebounced = debounce(saveSettingsLocal, 250);
+
+      function loadSettingsLocal() {
+        let parsed = null;
+        try {
+          const raw = localStorage.getItem(SETTINGS_KEY);
+          if (raw) parsed = safeJsonParse(raw, null);
+          if (parsed) applySettingsSnapshot(parsed);
+        } catch (e) { }
+
+        // Legacy migration: older builds persisted couchPass inside settings blob.
+        try {
+          const legacyPass = (parsed && typeof parsed.couchPass === "string") ? String(parsed.couchPass || "") : "";
+          if (legacyPass) {
+            settings.couchPass = legacyPass;            if (settings.rememberPass) saveCouchPassCookie(legacyPass);
+            // Rewrite settings without password (readSettingsSnapshot now excludes it).
+            saveSettingsLocal();
+          }
+        } catch (e) { }
+
+
+// Legacy migration: older builds stored couch password in a localStorage key.
+try {
+  const lp = localStorage.getItem("butebreath_couch_pass_local");
+  if (lp) {
+    if (!settings.couchPass) settings.couchPass = String(lp || "");
+    if (settings.rememberPass) saveCouchPassCookie(settings.couchPass);
+    localStorage.removeItem("butebreath_couch_pass_local");
+  }
+} catch (e) { }
+
+// Legacy migration: older builds stored couch password in a sessionStorage key.
+try { sessionStorage.removeItem("butebreath_couch_pass"); } catch (e) { }
+
+        // Hydrate password from cookie (only if Remember password is enabled)
+        loadCouchPassCookie();
+      }
+
+/* ---------------- Audio cues (main thread triggers) ---------------- */
+      const AUDIO = {
+        ctx: null,
+        unlocked: false,
+        vol: 0.18
+      };
+
+      const SND = {
+        SOFT_TICK_FREQ: 1200, SOFT_TICK_MS: 55,
+        HOLD_PROMPT_FREQ: 1400, HOLD_PROMPT_MS: 90,
+        CONFIRM_FREQ: 880, CONFIRM_MS: 110,
+        SUPPRESS_FREQ: 440, SUPPRESS_MS: 110,
+        UNLOCK_FREQ: 1000, UNLOCK_MS: 20
+      };
+
+      function audioEnsureUnlocked() {
+        if (!settings.sound) return;
+        if (AUDIO.unlocked && AUDIO.ctx) return;
+
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+
+        try {
+          if (!AUDIO.ctx) AUDIO.ctx = new Ctx();
+          if (AUDIO.ctx.state === "suspended") AUDIO.ctx.resume().catch(() => {});
+          AUDIO.unlocked = true;
+          // tiny inaudible-ish ping to unlock on iOS
+          beep(SND.UNLOCK_FREQ, SND.UNLOCK_MS, 0.001);
+        } catch (e) { console.error(e); }
+      }
+
+      function beep(freq, ms, vol) {
+        if (!settings.sound) return;
+        if (!AUDIO.ctx) return;
+        const t0 = AUDIO.ctx.currentTime;
+        const dur = Math.max(0.01, (ms || 50) / 1000);
+        const v = Math.max(0.0001, Math.min(1, (vol == null ? AUDIO.vol : vol)));
+
+        try {
+          const o = AUDIO.ctx.createOscillator();
+          const g = AUDIO.ctx.createGain();
+          o.type = "sine";
+          o.frequency.setValueAtTime(freq || 1000, t0);
+
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.linearRampToValueAtTime(v, t0 + 0.01);
+          g.gain.linearRampToValueAtTime(0.0001, t0 + dur);
+
+          o.connect(g);
+          g.connect(AUDIO.ctx.destination);
+          o.start(t0);
+          o.stop(t0 + dur + 0.02);
+        } catch (e) { console.error(e); }
+      }
+
+      function playSoftTick() { audioEnsureUnlocked(); beep(SND.SOFT_TICK_FREQ, SND.SOFT_TICK_MS); }
+      function playHoldPrompt() { audioEnsureUnlocked(); beep(SND.HOLD_PROMPT_FREQ, SND.HOLD_PROMPT_MS); }
+      function playConfirm() { audioEnsureUnlocked(); beep(SND.CONFIRM_FREQ, SND.CONFIRM_MS); }
+      function playSuppressPrompt() { audioEnsureUnlocked(); beep(SND.SUPPRESS_FREQ, SND.SUPPRESS_MS); }
+
+      // Unlock audio on first gesture
+      document.addEventListener("pointerdown", audioEnsureUnlocked, { once: true, passive: true });
+
+      /* ---------------- DOM ---------------- */
+      const el = {
+        shell: document.getElementById("shell"),
+        overlay: document.getElementById("overlay"),
+        drawer: document.getElementById("drawer"),
+        openMenu: document.getElementById("openMenu"),
+        openMenuFloat: document.getElementById("openMenuFloat"),
+        closeMenu: document.getElementById("closeMenu"),
+
+        cue: document.getElementById("cueLabel"),
+        sub: document.getElementById("subCueLabel"),
+        timer: document.getElementById("timerLabel"),
+        ring: document.getElementById("ringProgress"),
+        pBar: document.getElementById("pBar"),
+        steps: document.getElementById("stepCounter"),
+        startBtn: document.getElementById("startBtn"),
+        resetBtn: document.getElementById("resetBtn"),
+        pulseArea: document.getElementById("pulseInputArea"),
+        pulseIn: document.getElementById("pulseValue"),
+
+        m1: document.getElementById("m1"),
+        m2: document.getElementById("m2"),
+        mCP: document.getElementById("mCP"),
+
+        box1: document.getElementById("boxM1"),
+        box2: document.getElementById("boxM2"),
+        boxCP: document.getElementById("boxCP"),
+
+        ringWrap: document.getElementById("ringWrap"),
+        practiceCustomDrawer: document.getElementById("practiceCustomDrawer"),
+        practiceCustomTitle: document.getElementById("practiceCustomTitle"),
+        closePracticeCustomBtn: document.getElementById("closePracticeCustomBtn"),
+        customM1Fields: document.getElementById("customM1Fields"),
+        customM2Fields: document.getElementById("customM2Fields"),
+
+        inRC2: document.getElementById("inRC2"),
+
+        toggleSoundBtn: document.getElementById("toggleSoundBtn"),
+        soundState: document.getElementById("soundState"),
+        toggleWakeBtn: document.getElementById("toggleWakeBtn"),
+        wakeState: document.getElementById("wakeState"),
+        couchUrl: document.getElementById("couchUrl"),
+        couchDbName: document.getElementById("couchDbName"),
+        couchUser: document.getElementById("couchUser"),
+        couchPass: document.getElementById("couchPass"),
+        pwToggleBtn: document.getElementById("pwToggleBtn"),
+        syncBtn: document.getElementById("syncBtn"),
+        syncDot: document.getElementById("syncDot"),
+        syncText: document.getElementById("syncText"),
+        rememberPass: document.getElementById("rememberPass"),
+        rememberPassBtn: document.getElementById("rememberPassBtn"),
+        rememberPassState: document.getElementById("rememberPassState"),
+        forgetPassBtn: document.getElementById("forgetPassBtn"),
+
+        historyHint: document.getElementById("historyHint"),
+        historyList: document.getElementById("historyList"),
+        historyMoreBtn: document.getElementById("historyMoreBtn"),
+
+        chartMorning: document.getElementById("chartMorning"),
+        chartDelta: document.getElementById("chartDelta"),
+        deltaTabCp: document.getElementById("deltaTabCp"),
+        deltaTabPulse: document.getElementById("deltaTabPulse"),
+        deltaChartTitle: document.getElementById("deltaChartTitle"),
+        exportBtn: document.getElementById("exportBtn"),
+        importBtn: document.getElementById("importBtn"),
+        importFile: document.getElementById("importFile"),
+        offlineBanner: document.getElementById("offlineBanner"),
+        toast: document.getElementById("toast")
+      };
+
+
+function toast(msg, ms = 3500, options = {}) {
+  try {
+    if (!el.toast) return;
+
+    // Cancel timer and clear any previous action handlers BEFORE touching DOM.
+    try { if (toast._t) clearTimeout(toast._t); } catch (e) { console.error(e); }
+    toast._t = null;
+    try { if (toast._cleanup) toast._cleanup(); } catch (e) { console.error(e); }
+    toast._cleanup = null;
+
+    const t = String(msg || "");
+    if (!t) {
+      el.toast.textContent = "";
+      el.toast.classList.add("hidden");
+      el.toast.classList.remove("toast-large");
+      return;
+    }
+
+    el.toast.textContent = t;
+    el.toast.classList.remove("hidden");
+    
+    // Add large style if requested (for important notifications like updates)
+    if (options.large) {
+      el.toast.classList.add("toast-large");
+    } else {
+      el.toast.classList.remove("toast-large");
+    }
+
+    toast._t = setTimeout(() => {
+      try { toast(""); } catch (e) { }
+    }, Math.max(800, Number(ms || 0)));
+  } catch (e) { }
+}
+
+function toastAction(msg, actionLabel, onAction, ms = 5000) {
+  try {
+    if (!el.toast) return;
+
+    // Cancel timer and clear any previous action handlers BEFORE rebuilding.
+    try { if (toast._t) clearTimeout(toast._t); } catch (e) { console.error(e); }
+    toast._t = null;
+    try { if (toast._cleanup) toast._cleanup(); } catch (e) { console.error(e); }
+    toast._cleanup = null;
+
+    const t = String(msg || "");
+    if (!t) return toast("");
+
+    const label = String(actionLabel || "Undo");
+
+    // Build without innerHTML (avoids injection footguns and makes cleanup predictable).
+    const span = document.createElement("span");
+    span.className = "toastMsg";
+    span.textContent = t;
+
+    const btn = document.createElement("button");
+    btn.className = "toastBtn";
+    btn.type = "button";
+    btn.textContent = label;
+
+    try {
+      el.toast.replaceChildren(span, btn);
+    } catch (e) {
+      // Safari 13 fallback
+      el.toast.textContent = "";
+      el.toast.appendChild(span);
+      el.toast.appendChild(btn);
+    }
+
+    el.toast.classList.remove("hidden");
+
+    let done = false;
+    const handler = async (ev) => {
+      try { ev && ev.preventDefault && ev.preventDefault(); } catch (e) { console.error(e); }
+      try { ev && ev.stopPropagation && ev.stopPropagation(); } catch (e) { console.error(e); }
+      if (done) return;
+      done = true;
+      try { if (toast._t) clearTimeout(toast._t); } catch (e) { console.error(e); }
+      toast._t = null;
+      try { btn.disabled = true; } catch (e) { console.error(e); }
+      try { if (typeof onAction === "function") await onAction(); } catch (e) { console.error(e); }
+      toast("");
+    };
+
+    btn.addEventListener("click", handler);
+
+    toast._cleanup = () => {
+      try { btn.removeEventListener("click", handler); } catch (e) { console.error(e); }
+    };
+
+    toast._t = setTimeout(() => { toast(""); }, Math.max(1000, Number(ms || 0)));
+  } catch (e) { }
+}
+
+
+
+function updateOfflineBanner() {
+  try {
+    if (!el.offlineBanner) return;
+    const offline = !navigator.onLine;
+    const show = offline && (currentPage === "history" || currentPage === "settings");
+    el.offlineBanner.classList.toggle("hidden", !show);
+  } catch (e) { console.error(e); }
+}
+window.addEventListener("online", updateOfflineBanner);
+window.addEventListener("offline", updateOfflineBanner);
+
+window.addEventListener("error", (ev) => {
+  try {
+    console.error("Unhandled error:", ev && (ev.error || ev.message) ? (ev.error || ev.message) : ev);
+  } catch (e) { }
+  toast("Unexpected error. Try reloading.");
+});
+
+window.addEventListener("unhandledrejection", (ev) => {
+  try { console.error("Unhandled rejection:", ev && ev.reason ? ev.reason : ev); } catch (e) { }
+  toast("Unexpected error. Try again.");
+});
+
+      const CIRC = 2 * Math.PI * 140;
+      el.ring.style.strokeDasharray = CIRC;
+
+      function setRingSmoothMode(enabled) {
+        el.ring.style.transition = enabled ? "none" : "stroke-dashoffset 90ms linear";
+      }
+      
+      function fitRingText() {
+        // We only render the main cue + timer inside the ring (no small header text).
+        if (!el.ringWrap || !el.cue || !el.timer) return;
+
+        const w = el.ringWrap.getBoundingClientRect().width || 0;
+        if (!w) return;
+
+        const core = w * 0.68;
+        const maxW = core * 0.90;
+        const maxH = core * 0.78;
+
+        // Allow wrapping for long cues
+        el.cue.style.maxWidth = Math.round(maxW) + "px";
+
+        // Reset to a sane baseline, then shrink until it fits
+        const baseCue = (w < 320) ? 28 : 32;
+        const baseTimer = (w < 320) ? 20 : 22;
+        el.timer.style.fontSize = baseTimer + "px";
+        el.cue.style.fontSize = baseCue + "px";
+
+        let cueSize = baseCue;
+        for (let i = 0; i < 14; i++) {
+          const h = el.cue.getBoundingClientRect().height +
+                    el.timer.getBoundingClientRect().height;
+
+          const cw = el.cue.getBoundingClientRect().width;
+
+          if (h <= maxH && cw <= maxW) break;
+
+          cueSize = Math.max(18, cueSize - 1.5);
+          el.cue.style.fontSize = cueSize + "px";
+          if (cueSize <= 18) break;
+        }
+      }
+
+            const onResizeFitDebounced = debounce(() => {
+        try { fitRingText(); } catch (e) { console.error(e); }
+      }, 120);
+      window.addEventListener("resize", onResizeFitDebounced);
+
+function ringSetOffset(v) {
+        el.ring.style.strokeDashoffset = v;
+      }
+
+      /* ---------------- Drawer + pages (Reso-like) ---------------- */
+      const PAGES = ["practice", "instructions", "settings", "history", "about"];
+      let currentPage = "practice";
+
+      function updateBurgerVisibility() {
+        const open = el.drawer.classList.contains("open");
+        if (open) {
+          if (el.openMenu) el.openMenu.style.visibility = "hidden";
+          if (el.openMenuFloat) el.openMenuFloat.style.visibility = "hidden";
+          return;
+        }
+        if (el.openMenu) el.openMenu.style.visibility = "visible";
+        if (el.openMenuFloat) el.openMenuFloat.style.display = "none";
+      }
+
+      function openDrawer() {
+        document.body.classList.add("drawerOpen");
+        el.overlay.classList.add("open");
+        el.drawer.classList.add("open");
+        updateBurgerVisibility();
+      }
+      function closeDrawer() {
+        el.overlay.classList.remove("open");
+        el.drawer.classList.remove("open");
+        document.body.classList.remove("drawerOpen");
+        updateBurgerVisibility();
+      }
+
+      function setPage(page) {
+        if (!PAGES.includes(page)) return;
+        currentPage = page;
+        el.shell.dataset.page = page;
+
+        const pages = document.querySelectorAll(".page");
+        pages.forEach((p) => p.classList.remove("active"));
+        const active = document.getElementById("page-" + page);
+        if (active) active.classList.add("active");
+
+        const items = el.drawer.querySelectorAll(".menuItem[data-page]");
+        items.forEach((it) => it.classList.toggle("active", it.getAttribute("data-page") === page));
+
+        closeDrawer();
+        updateOfflineBanner();
+
+        if (page === "history") {
+          try { scheduleHistoryChartsRender(); } catch (e) { console.error(e); }
+        }
+      }
+
+      el.openMenu.addEventListener("click", openDrawer);
+      if (el.openMenuFloat) el.openMenuFloat.addEventListener("click", openDrawer);
+      el.closeMenu.addEventListener("click", closeDrawer);
+      el.overlay.addEventListener("click", closeDrawer);
+
+      el.drawer.querySelectorAll(".menuItem[data-page]").forEach((it) => {
+        it.addEventListener("click", () => {
+          const page = it.getAttribute("data-page");
+          setPage(page);
+        });
+      });
+
+      /* ---------------- Settings UI + DB + Sync + Wake lock ---------------- */
+      const wakeSupported = ("wakeLock" in navigator);
+
+      function applySettingsUI() {
+        if (el.soundState && el.toggleSoundBtn) {
+          el.soundState.textContent = settings.sound ? "On" : "Off";
+          el.toggleSoundBtn.classList.toggle("active", settings.sound);
+        }
+
+        if (el.wakeState && el.toggleWakeBtn) {
+          el.wakeState.textContent = settings.wakeLock ? "On" : "Off";
+          el.toggleWakeBtn.classList.toggle("active", settings.wakeLock);
+          el.toggleWakeBtn.disabled = !wakeSupported;
+          if (!wakeSupported) el.wakeState.textContent = "Unsupported";
+        }
+
+        if (el.couchUrl) el.couchUrl.value = settings.couchUrl || "";
+        if (el.couchDbName) el.couchDbName.value = settings.couchDbName || "butebreath";
+        if (el.couchUser) el.couchUser.value = settings.couchUser || "";
+        if (el.couchPass) el.couchPass.value = settings.couchPass || "";
+
+        renderRememberPassUI();
+      }
+
+      function renderRememberPassUI() {
+        if (!el.rememberPassState || !el.rememberPassBtn) return;
+        el.rememberPassState.textContent = settings.rememberPass ? "On" : "Off";
+        el.rememberPassBtn.classList.toggle("active", !!settings.rememberPass);
+      }
+
+      /* wake lock */
+      let wakeLockSentinel = null;
+      let wakeLockErrorNotified = false;
+
+      async function requestWakeLockIfEnabled() {
+        if (!settings.wakeLock) return;
+        if (!wakeSupported) return;
+
+        try {
+          wakeLockSentinel = await navigator.wakeLock.request("screen");
+          wakeLockErrorNotified = false;
+          wakeLockSentinel.addEventListener("release", () => { wakeLockSentinel = null; });
+        } catch (e) {
+          wakeLockSentinel = null;
+          // Silent failures are confusing. Only toast once per run while active.
+          if (!wakeLockErrorNotified && state !== "IDLE") {
+            wakeLockErrorNotified = true;
+            toast("Wake Lock blocked. Screen may dim.");
+          }
+        }
+      }
+      async function releaseWakeLock() {
+        try {
+          if (wakeLockSentinel) {
+            await wakeLockSentinel.release();
+            wakeLockSentinel = null;
+          }
+        } catch (e) { wakeLockSentinel = null; }
+      }
+      document.addEventListener("visibilitychange", async () => {
+        if (document.visibilityState === "visible" && state !== "IDLE") {
+          requestWakeLockIfEnabled();
+          try { if (AUDIO.ctx && AUDIO.ctx.state === "suspended") await AUDIO.ctx.resume(); } catch (e) { console.error(e); }
+        }
+      });
+
+      /* PouchDB (sessions) + localStorage fallback */
+      let db = null;
+      const DB_NAME = "butebreath_db_v1";
+
+      function initDbMaybe() {
+        if (db) return;
+        if (typeof window.PouchDB === "undefined") return;
+        try { db = new window.PouchDB(DB_NAME); } catch (e) { db = null; }
+      }
+
+      function localSessionsRead() {
+        const raw = localStorage.getItem(SESSION_STORE_KEY);
+        const list = safeJsonParse(raw, []);
+        return Array.isArray(list) ? list : [];
+      }
+      function localSessionsWrite(list) {
+        try { localStorage.setItem(SESSION_STORE_KEY, JSON.stringify(list)); } catch (e) { }
+      }
+
+      async function saveSession(sessionDoc) {
+        const doc = {
+          _id: `session:${sessionDoc.startAtEpochMs}:${Math.random().toString(16).slice(2)}`,
+          type: "session",
+          createdAt: Date.now(),
+          ...sessionDoc,
+        };
+
+        initDbMaybe();
+
+        if (db) {
+          await db.put(doc);
+          return;
+        }
+
+        const list = localSessionsRead();
+        list.unshift(doc);
+        localSessionsWrite(list);
+      }
+
+      async function loadSessions(limit = 300) {
+        initDbMaybe();
+
+        const want = Math.max(1, Math.min(5000, Number(limit) || 300));
+
+        if (db) {
+          const res = await db.allDocs({
+            include_docs: true,
+            descending: true,
+            startkey: "session:\uffff",
+            endkey: "session:",
+            limit: want
+          });
+
+          const out = [];
+          for (const r of res.rows) {
+            const d = r.doc;
+            if (d && d.type === "session") out.push(d);
+          }
+          return out;
+        }
+
+        return localSessionsRead().filter(x => x && x.type === "session").slice(0, want);
+      }
+
+
+      async function deleteSessionNow(doc) {
+        if (!doc) return null;
+        initDbMaybe();
+
+        if (db) {
+          if (!doc._id || !doc._rev) return null;
+          const resp = await db.remove(doc);
+          return { backend: "pouch", id: doc._id, delRev: resp && resp.rev ? resp.rev : null };
+        }
+
+        const list = localSessionsRead();
+        localSessionsWrite(list.filter(x => x && x._id !== doc._id));
+        return { backend: "local", id: doc._id, delRev: null };
+      }
+
+      async function restoreDeletedSession(doc, delRev) {
+        if (!doc) return;
+        initDbMaybe();
+
+        if (db) {
+          if (!doc._id) return;
+          let baseRev = delRev || null;
+
+          // If we missed the delete rev, try to fetch the current (likely deleted) rev.
+          if (!baseRev) {
+            try {
+              const cur = await db.get(doc._id);
+              if (cur && cur._rev) baseRev = cur._rev;
+            } catch (e) { console.error(e); }
+          }
+
+          const toPut = Object.assign({}, doc);
+          delete toPut._deleted;
+          if (baseRev) toPut._rev = baseRev;
+          else delete toPut._rev;
+
+          await db.put(toPut);
+          return;
+        }
+
+        const list = localSessionsRead();
+        const filtered = list.filter(x => x && x._id !== doc._id);
+        filtered.unshift(doc);
+        localSessionsWrite(filtered);
+      }
+
+      const UNDO_DELETE_TTL_MS = 5000;
+      let undoQueue = [];
+      let undoQueueTimer = null;
+
+      function clearUndoQueue() {
+        try { if (undoQueueTimer) clearTimeout(undoQueueTimer); } catch (e) { console.error(e); }
+        undoQueueTimer = null;
+        undoQueue = [];
+      }
+
+      function enqueueUndoDelete(docSnapshot, delRev) {
+        if (!docSnapshot || !docSnapshot._id) return;
+        const id = docSnapshot._id;
+
+        // Avoid duplicates if the same session is deleted twice before undo.
+        undoQueue = undoQueue.filter(x => x && x.doc && x.doc._id !== id);
+
+        undoQueue.push({ doc: docSnapshot, delRev: delRev || null, t: Date.now() });
+      }
+
+      function scheduleUndoQueueExpiry() {
+        try { if (undoQueueTimer) clearTimeout(undoQueueTimer); } catch (e) { console.error(e); }
+        undoQueueTimer = setTimeout(() => {
+          clearUndoQueue();
+          try { toast(""); } catch (e) { console.error(e); }
+        }, UNDO_DELETE_TTL_MS + 120);
+      }
+
+      async function undoAllPendingDeletes() {
+        const items = Array.isArray(undoQueue) ? undoQueue.slice() : [];
+        clearUndoQueue();
+        if (!items.length) return;
+
+        let ok = 0;
+        let fail = 0;
+
+        for (const it of items) {
+          if (!it || !it.doc) continue;
+          try {
+            await restoreDeletedSession(it.doc, it.delRev);
+            ok++;
+          } catch (e) {
+            fail++;
+          }
+        }
+
+        try { await refreshSessionsUI(); } catch (e) { console.error(e); }
+
+        // toastAction clears the toast after the action handler returns, so defer any status toast.
+        setTimeout(() => {
+          if (fail === 0) {
+            toast(ok === 1 ? "Restored 1 session." : `Restored ${ok} sessions.`);
+          } else {
+            toast(`Undo incomplete: restored ${ok} of ${items.length}.`);
+          }
+        }, 0);
+      }
+
+      function showUndoQueueToast() {
+        const n = Array.isArray(undoQueue) ? undoQueue.length : 0;
+        if (!n) { toast(""); return; }
+        const msg = (n === 1) ? "Session deleted." : `${n} sessions deleted.`;
+        toastAction(msg, `Undo (${n})`, undoAllPendingDeletes, UNDO_DELETE_TTL_MS);
+      }
+
+      async function deleteSessionWithUndo(doc) {
+        if (!doc) return;
+
+        const snapshot = JSON.parse(JSON.stringify(doc));
+        let info = null;
+        try {
+          info = await deleteSessionNow(doc);
+        } catch (e) {
+          toast("Delete failed.");
+          return;
+        }
+
+        // Remove from UI now.
+        try { await refreshSessionsUI(); } catch (e) { console.error(e); }
+
+        if (!info || !snapshot) return;
+
+        enqueueUndoDelete(snapshot, info.delRev);
+        showUndoQueueToast();
+
+        // Refresh the undo window for ALL pending deletes.
+        scheduleUndoQueueExpiry();
+      }
+
+      const HISTORY_PAGE_SIZE = 30;
+
+      let historyItems = [];
+      let historyCursorId = null;
+      let historyHasMore = true;
+      let historyChartCache = null;
+
+// History charts: do not render while the History page is hidden (display:none).
+// If we render at a fallback width while hidden, the browser later horizontally rescales the bitmap and axis labels look condensed.
+let historyChartsDirty = false;
+let historyChartsRetry = 0;
+let historyChartsRetryTimer = null;
+
+function isHistoryPageActive() {
+  const p = document.getElementById("page-history");
+  return !!(p && p.classList.contains("active"));
+}
+
+function historyChartsHaveLayout() {
+  if (!isHistoryPageActive()) return false;
+  if (!el.chartMorning || !el.chartDelta) return false;
+  const r1 = el.chartMorning.getBoundingClientRect();
+  const r2 = el.chartDelta.getBoundingClientRect();
+  return (r1.width >= 80 && r1.height >= 60 && r2.width >= 80 && r2.height >= 60);
+}
+
+function scheduleHistoryChartsRender() {
+  historyChartsDirty = true;
+  if (!isHistoryPageActive()) return;
+
+  if (historyChartsRetryTimer) {
+    clearTimeout(historyChartsRetryTimer);
+    historyChartsRetryTimer = null;
+  }
+  historyChartsRetry = 0;
+
+  const attempt = () => {
+    if (!historyChartsDirty) return;
+    if (!isHistoryPageActive()) return;
+    if (!historyChartCache) return;
+
+    if (historyChartsHaveLayout()) {
+      try { renderHistoryCharts(historyChartCache); } catch (e) { console.error(e); }
+      historyChartsDirty = false;
+      return;
+    }
+
+    historyChartsRetry++;
+    if (historyChartsRetry > 12) return;
+
+    historyChartsRetryTimer = setTimeout(() => {
+      historyChartsRetryTimer = null;
+      requestAnimationFrame(attempt);
+    }, 60);
+  };
+
+  requestAnimationFrame(() => requestAnimationFrame(attempt));
+}
+
+
+      function historyResetPaging() {
+        historyItems = [];
+        historyCursorId = null;
+        historyHasMore = true;
+        if (el.historyMoreBtn) el.historyMoreBtn.disabled = true;
+      }
+
+      function historyUpdateMoreBtn() {
+        if (!el.historyMoreBtn) return;
+        el.historyMoreBtn.disabled = !historyHasMore;
+      }
+
+      async function loadSessionsPage(limit, cursorId) {
+        initDbMaybe();
+        const want = Math.max(1, Math.min(5000, Number(limit) || HISTORY_PAGE_SIZE));
+
+        if (db) {
+          const res = await db.allDocs({
+            include_docs: true,
+            descending: true,
+            startkey: cursorId || "session:\uffff",
+            endkey: "session:",
+            skip: cursorId ? 1 : 0,
+            limit: want + 1
+          });
+
+          const docs = [];
+          for (const r of res.rows) {
+            const d = r.doc;
+            if (d && d.type === "session") docs.push(d);
+            if (docs.length >= want + 1) break;
+          }
+
+          const hasMore = docs.length > want;
+          const items = hasMore ? docs.slice(0, want) : docs;
+          const nextCursor = items.length ? items[items.length - 1]._id : (cursorId || null);
+
+          return { items, hasMore, nextCursor };
+        }
+
+        const all = localSessionsRead().filter(x => x && x.type === "session");
+        let startIdx = 0;
+        if (cursorId) {
+          const i = all.findIndex(x => x && x._id === cursorId);
+          if (i >= 0) startIdx = i + 1;
+        }
+        const items = all.slice(startIdx, startIdx + want);
+        const hasMore = (startIdx + want) < all.length;
+        const nextCursor = items.length ? items[items.length - 1]._id : (cursorId || null);
+        return { items, hasMore, nextCursor };
+      }
+
+      async function loadSessionsSince(minEpochMs, limit = 2000) {
+        initDbMaybe();
+
+        const minT = Number(minEpochMs);
+        const want = Math.max(1, Math.min(5000, Number(limit) || 2000));
+
+        if (!Number.isFinite(minT)) return await loadSessions(want);
+
+        if (db) {
+          const startkey = `session:${Date.now()}:\uffff`;
+          const endkey = `session:${Math.max(0, Math.floor(minT))}:`;
+          const res = await db.allDocs({
+            include_docs: true,
+            descending: true,
+            startkey,
+            endkey,
+            limit: want
+          });
+
+          const out = [];
+          for (const r of res.rows) {
+            const d = r.doc;
+            if (d && d.type === "session") out.push(d);
+          }
+          return out;
+        }
+
+        const all = localSessionsRead().filter(x => x && x.type === "session");
+        return all.filter(s => Number(s.startAtEpochMs || 0) >= minT).slice(0, want);
+      }
+
+      async function refreshHistoryChartsUI() {
+        try {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const minEpoch = today.getTime() - (13 * 24 * 60 * 60 * 1000);
+          const chartList = await loadSessionsSince(minEpoch, 2000);
+          historyChartCache = Array.isArray(chartList) ? chartList : [];
+          historyChartsDirty = true;
+          try { scheduleHistoryChartsRender(); } catch (e) { console.error(e); }
+        } catch (e) { console.error(e); }
+      }
+
+      async function historyLoadMore() {
+        if (!historyHasMore) return;
+
+        const page = await loadSessionsPage(HISTORY_PAGE_SIZE, historyCursorId);
+        const items = Array.isArray(page.items) ? page.items : [];
+
+        historyItems = historyItems.concat(items);
+        historyHasMore = !!page.hasMore;
+        historyCursorId = page.nextCursor || null;
+
+        renderHistory(historyItems);
+        historyUpdateMoreBtn();
+      }
+
+      function toLocalDayKey(epochMs) {
+        const d = new Date(epochMs);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+
+      function buildLast14DaysBuckets() {
+        const buckets = new Map();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        for (let i = 13; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          buckets.set(toLocalDayKey(d.getTime()), {
+            date: d,
+            morningCp: null,
+            morningEpoch: 0,
+            dcp: [],
+            dpulse: [],
+          });
+        }
+        return buckets;
+      }
+
+      function avg(arr) {
+        if (!arr || !arr.length) return null;
+        let s = 0, n = 0;
+        for (const x of arr) {
+          const v = Number(x);
+          if (Number.isFinite(v)) { s += v; n++; }
+        }
+        return n ? (s / n) : null;
+      }
+
+      function renderBarChartPositive(canvas, days, values, opts) {
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        const rect = canvas.getBoundingClientRect();
+        if (!rect || rect.width < 1) return;
+
+        const cssW = Math.max(240, Math.floor(rect.width));
+        let cssH = Math.floor(rect.height || 0);
+        if (cssH < 60) {
+          const cs = getComputedStyle(canvas);
+          const h = parseFloat(cs.height || "0");
+          cssH = (Number.isFinite(h) && h >= 60) ? Math.floor(h) : 140;
+        }
+        cssH = Math.max(90, cssH);
+
+        const pixelW = Math.max(1, Math.round(cssW * dpr));
+        const pixelH = Math.max(1, Math.round(cssH * dpr));
+        canvas.width = pixelW;
+        canvas.height = pixelH;
+        ctx.setTransform(pixelW / cssW, 0, 0, pixelH / cssH, 0, 0);
+
+        const accent = opts?.accent || getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#19d3c5";
+        const grid = "rgba(255,255,255,0.10)";
+        const text = "rgba(255,255,255,0.72)";
+        const unit = (opts && typeof opts.unit === "string") ? opts.unit : "";
+
+        ctx.clearRect(0, 0, cssW, cssH);
+
+        // Padding: reserve space for Y labels (dynamic on small screens).
+        const padR = 10, padT = 14, padB = 34;
+        let padL = 46;
+        let plotW = 0;
+        let plotH = 0;
+
+        const maxVal = Math.max(0, ...values.map(v => Number.isFinite(Number(v)) ? Number(v) : 0));
+        // Round max to a nice step so labels are stable.
+        const step = (opts && Number.isFinite(opts.step)) ? Math.max(1, Number(opts.step)) : 10;
+        const scaleMax = maxVal > 0 ? (Math.ceil(maxVal / step) * step) : 1;
+
+        // Dynamic left padding based on label width (avoid cropping on small screens).
+        try {
+          ctx.font = "700 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+          const yLabels = [`${Math.round(scaleMax)}${unit}`, `${Math.round(scaleMax * 0.5)}${unit}`, `0${unit}`];
+          const maxW = Math.max(...yLabels.map(t => ctx.measureText(String(t)).width));
+          padL = Math.ceil(maxW + 14);
+        } catch (e) { console.error(e); }
+
+        padL = Math.min(78, Math.max(38, padL));
+        const minPlotW = 160;
+        if (cssW - padL - padR < minPlotW) padL = Math.max(30, cssW - padR - minPlotW);
+
+        plotW = cssW - padL - padR;
+        plotH = cssH - padT - padB;
+
+
+        // Grid lines (0/50/100%)
+        ctx.strokeStyle = grid;
+        ctx.lineWidth = 1;
+        [0, 0.5, 1].forEach(frac => {
+          const y = padT + plotH * (1 - frac);
+          ctx.beginPath();
+          ctx.moveTo(padL, y);
+          ctx.lineTo(padL + plotW, y);
+          ctx.stroke();
+        });
+
+        // Y-axis labels
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = text;
+        ctx.font = "700 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        [1, 0.5, 0].forEach(frac => {
+          const y = padT + plotH * (1 - frac);
+          const val = Math.round(scaleMax * frac);
+          const x = padL - 8;
+          ctx.fillText(`${val}${unit}`, x, y);
+        });
+
+        // Bars
+        const n = days.length;
+        const gap = 3;
+        const barW = Math.max(6, Math.floor((plotW - gap * (n - 1)) / n));
+
+        for (let i = 0; i < n; i++) {
+          const v = Number(values[i]);
+          const ok = Number.isFinite(v) && v > 0;
+          const x = padL + i * (barW + gap);
+          const h = ok ? (v / scaleMax) * plotH : 0;
+          const y = padT + (plotH - h);
+
+          ctx.fillStyle = accent;
+          ctx.globalAlpha = ok ? 0.85 : 0.18;
+          ctx.fillRect(x, y, barW, h);
+
+          // X labels (day of month): fewer ticks on small screens
+          const showEvery = (cssW < 420) ? 3 : 2;
+          if (i % showEvery === showEvery - 1 || n <= 7) {
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = text;
+            ctx.font = "700 11px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "alphabetic";
+            ctx.fillText(String(days[i].getDate()), x + barW / 2, cssH - 8);
+          }
+        }
+
+        ctx.globalAlpha = 1;
+      }
+
+      function renderBarChartDelta(canvas, days, values, opts) {
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        const rect = canvas.getBoundingClientRect();
+        if (!rect || rect.width < 1) return;
+
+        const cssW = Math.max(240, Math.floor(rect.width));
+        let cssH = Math.floor(rect.height || 0);
+        if (cssH < 60) {
+          const cs = getComputedStyle(canvas);
+          const h = parseFloat(cs.height || "0");
+          cssH = (Number.isFinite(h) && h >= 60) ? Math.floor(h) : 140;
+        }
+        cssH = Math.max(90, cssH);
+
+        const pixelW = Math.max(1, Math.round(cssW * dpr));
+        const pixelH = Math.max(1, Math.round(cssH * dpr));
+        canvas.width = pixelW;
+        canvas.height = pixelH;
+        ctx.setTransform(pixelW / cssW, 0, 0, pixelH / cssH, 0, 0);
+
+        const accent = opts?.accent || getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#19d3c5";
+        const grid = "rgba(255,255,255,0.10)";
+        const text = "rgba(255,255,255,0.72)";
+        const unit = (opts && typeof opts.unit === "string") ? opts.unit : "";
+
+        ctx.clearRect(0, 0, cssW, cssH);
+
+        // Padding: reserve space for Y labels (dynamic on small screens).
+        const padR = 10, padT = 14, padB = 34;
+        let padL = 46;
+        let plotW = 0;
+        let plotH = 0;
+        let midY = 0;
+
+        const absMax = Math.max(0, ...values.map(v => Number.isFinite(Number(v)) ? Math.abs(Number(v)) : 0));
+        const step = (opts && Number.isFinite(opts.step)) ? Math.max(0.1, Number(opts.step)) : 5;
+        const scaleAbs = absMax > 0 ? (Math.ceil(absMax / step) * step) : 1;
+
+        // Dynamic left padding based on label width (avoid cropping on small screens).
+        try {
+          ctx.font = "700 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+          const maxLabel = (unit === "bpm") ? String(Math.round(scaleAbs)) : (Math.round(scaleAbs * 10) / 10).toString();
+          const yLabels = [`+${maxLabel}${unit}`, `0${unit}`, `-${maxLabel}${unit}`];
+          const maxW = Math.max(...yLabels.map(t => ctx.measureText(String(t)).width));
+          padL = Math.ceil(maxW + 14);
+        } catch (e) { console.error(e); }
+
+        padL = Math.min(78, Math.max(38, padL));
+        const minPlotW = 160;
+        if (cssW - padL - padR < minPlotW) padL = Math.max(30, cssW - padR - minPlotW);
+
+        plotW = cssW - padL - padR;
+        plotH = cssH - padT - padB;
+        midY = padT + plotH / 2;
+
+
+        // Grid lines: top / mid / bottom
+        ctx.strokeStyle = grid;
+        ctx.lineWidth = 1;
+        [padT, midY, padT + plotH].forEach(y => {
+          ctx.beginPath();
+          ctx.moveTo(padL, y);
+          ctx.lineTo(padL + plotW, y);
+          ctx.stroke();
+        });
+
+        // Y labels: +max / 0 / -max
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = text;
+        ctx.font = "700 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+
+        function fmt(v) {
+          // Keep labels compact (integers for bpm, one decimal for sec deltas).
+          if (unit === "bpm") return String(Math.round(v));
+          return (Math.round(v * 10) / 10).toString();
+        }
+
+        const x = padL - 8;
+        ctx.fillText(`+${fmt(scaleAbs)}${unit}`, x, padT);
+        ctx.fillText(`0${unit}`, x, midY);
+        ctx.fillText(`-${fmt(scaleAbs)}${unit}`, x, padT + plotH);
+
+        // Bars
+        const n = days.length;
+        const gap = 3;
+        const barW = Math.max(6, Math.floor((plotW - gap * (n - 1)) / n));
+
+        for (let i = 0; i < n; i++) {
+          const v = Number(values[i]);
+          const ok = Number.isFinite(v) && v !== 0;
+          const x = padL + i * (barW + gap);
+          const h = ok ? (Math.abs(v) / scaleAbs) * (plotH / 2) : 0;
+          const y = (v >= 0) ? (midY - h) : midY;
+
+          ctx.fillStyle = accent;
+          ctx.globalAlpha = ok ? 0.85 : 0.18;
+          ctx.fillRect(x, y, barW, h);
+
+          const showEvery = (cssW < 420) ? 3 : 2;
+          if (i % showEvery === showEvery - 1 || n <= 7) {
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = text;
+            ctx.font = "700 11px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "alphabetic";
+            ctx.fillText(String(days[i].getDate()), x + barW / 2, cssH - 8);
+          }
+        }
+
+        ctx.globalAlpha = 1;
+      }
+
+      const HISTORY_DELTA_TAB_KEY = "bb.history.delta.tab.v1";
+      let deltaChartMode = "dcp"; // 'dcp' | 'dpulse'
+      let deltaChartData = null;
+
+      function setDeltaChartMode(mode, persist) {
+        const m = (mode === "dpulse") ? "dpulse" : "dcp";
+        deltaChartMode = m;
+
+        if (el.deltaTabCp) el.deltaTabCp.classList.toggle("active", m === "dcp");
+        if (el.deltaTabPulse) el.deltaTabPulse.classList.toggle("active", m === "dpulse");
+
+        if (el.deltaChartTitle) {
+          el.deltaChartTitle.textContent = (m === "dcp")
+            ? "ΔCP per day (last 14 days)"
+            : "ΔPulse per day (last 14 days)";
+        }
+
+        if (persist) {
+          try { localStorage.setItem(HISTORY_DELTA_TAB_KEY, m); } catch (e) { console.error(e); }
+        }
+
+        renderDeltaChart();
+      }
+
+      function renderDeltaChart() {
+        if (!deltaChartData) return;
+        const days = deltaChartData.days || [];
+        const dcpVals = deltaChartData.dcpVals || [];
+        const dpulseVals = deltaChartData.dpulseVals || [];
+        if (deltaChartMode === "dpulse") renderBarChartDelta(el.chartDelta, days, dpulseVals, { unit: "bpm", step: 5 });
+        else renderBarChartDelta(el.chartDelta, days, dcpVals, { unit: "s", step: 2.5 });
+      }
+
+      function initDeltaChartTabs() {
+        try {
+          const saved = localStorage.getItem(HISTORY_DELTA_TAB_KEY);
+          if (saved === "dpulse") deltaChartMode = "dpulse";
+        } catch (e) { console.error(e); }
+
+        if (el.deltaTabCp) el.deltaTabCp.addEventListener("click", () => setDeltaChartMode("dcp", true));
+        if (el.deltaTabPulse) el.deltaTabPulse.addEventListener("click", () => setDeltaChartMode("dpulse", true));
+
+        setDeltaChartMode(deltaChartMode, false);
+      }
+
+      function renderHistoryCharts(list) {
+        historyChartCache = Array.isArray(list) ? list : [];
+
+        const buckets = buildLast14DaysBuckets();
+
+        const numOrNull = (v) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? n : null;
+        };
+
+        if (Array.isArray(list)) {
+          list.forEach(s => {
+            if (!s || !Number.isFinite(Number(s.startAtEpochMs))) return;
+            const k = toLocalDayKey(Number(s.startAtEpochMs));
+            const b = buckets.get(k);
+            if (!b) return;
+
+            const r = s.results || {};
+
+            if (s.method === "CP") {
+              const mcp = numOrNull(r.morningCpSec);
+              if (mcp != null) {
+                const t = Number(s.startAtEpochMs);
+                if (!b.morningEpoch || t > b.morningEpoch) {
+                  b.morningEpoch = t;
+                  b.morningCp = mcp;
+                }
+              }
+              return;
+            }
+
+            const ps = numOrNull(r.pulseStartBpm);
+            const pe = numOrNull(r.pulseEndBpm);
+            if (ps != null && pe != null) b.dpulse.push(pe - ps);
+
+            const cs = numOrNull(r.cpStartSec);
+            const ce = numOrNull(r.cpEndSec);
+            if (cs != null && ce != null) b.dcp.push(ce - cs);
+          });
+        }
+
+        const days = [];
+        const morningVals = [];
+        const dcpVals = [];
+        const dpulseVals = [];
+
+        for (const [_, b] of buckets.entries()) {
+          days.push(b.date);
+          morningVals.push(b.morningCp != null ? Number(b.morningCp) : 0);
+          dcpVals.push(avg(b.dcp) ?? 0);
+          dpulseVals.push(avg(b.dpulse) ?? 0);
+        }
+
+        renderBarChartPositive(el.chartMorning, days, morningVals, { unit: "s", step: 10 });
+
+        deltaChartData = { days, dcpVals, dpulseVals };
+        renderDeltaChart();
+      }
+
+/* Export / Import */
+      const MAX_IMPORT = 5000;
+      const IMPORT_YIELD_EVERY = 400; // Yield to UI every N items during import. Set to 0 to disable.
+      const IMPORTING_TOAST_MS = 24 * 60 * 60 * 1000;
+
+      function downloadJson(filename, obj) {
+        const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      async function exportSessions() {
+        const list = await loadSessions(2000);
+        const d = new Date();
+        const pad2 = (n) => String(n).padStart(2, "0");
+        const fn = `butebreath_sessions_${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}_${pad2(d.getHours())}${pad2(d.getMinutes())}.json`;
+        downloadJson(fn, {
+          exportedAt: new Date().toISOString(),
+          version: 1,
+          sessions: list
+        });
+      }
+
+      async function importSessionsFromObject(payload) {
+        try {
+          if (!payload || typeof payload !== "object") throw new Error("Invalid JSON");
+
+          const sessions = Array.isArray(payload.sessions)
+            ? payload.sessions
+            : (Array.isArray(payload) ? payload : null);
+
+          if (!sessions) throw new Error("No sessions array");
+
+          const rafYield = () => new Promise((r) => requestAnimationFrame(() => r()));
+
+          const num = (v) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : null;
+          };
+          const clamp = (v, min, max) => {
+            const n = num(v);
+            if (n == null) return null;
+            let out = n;
+            if (Number.isFinite(min)) out = Math.max(min, out);
+            if (Number.isFinite(max)) out = Math.min(max, out);
+            return out;
+          };
+
+          const sanitizeSessionDoc = (x) => {
+            if (!x || typeof x !== "object") return null;
+
+            const startRaw = num(x.startAtEpochMs);
+            if (startRaw == null || startRaw <= 0) return null;
+            const start = Math.floor(startRaw);
+
+            const method = (x.method === "M1" || x.method === "M2" || x.method === "CP") ? x.method : null;
+            if (!method) return null;
+
+            const idOk = (typeof x._id === "string" && /^session:\d+:/i.test(x._id));
+            const sid = idOk ? x._id : `session:${start}:${Math.random().toString(16).slice(2)}`;
+
+            const createdAtRaw = num(x.createdAt);
+            const createdAt = Math.floor(createdAtRaw != null ? createdAtRaw : start);
+
+            const r = (x.results && typeof x.results === "object") ? x.results : {};
+            const res = {};
+
+            const ps = clamp(r.pulseStartBpm, 0, 300);
+            const pe = clamp(r.pulseEndBpm, 0, 300);
+            if (ps != null) res.pulseStartBpm = Math.round(ps);
+            if (pe != null) res.pulseEndBpm = Math.round(pe);
+
+            const cs = clamp(r.cpStartSec, 0, 600);
+            const ce = clamp(r.cpEndSec, 0, 600);
+            const mcp = clamp(r.morningCpSec, 0, 600);
+
+            if (cs != null) res.cpStartSec = Math.round(cs * 10) / 10;
+            if (ce != null) res.cpEndSec = Math.round(ce * 10) / 10;
+            if (mcp != null) res.morningCpSec = Math.round(mcp * 10) / 10;
+
+            if (Array.isArray(r.holds)) {
+              const outHolds = [];
+              const MAX_HOLDS = 200;
+              for (const h of r.holds.slice(0, MAX_HOLDS)) {
+                if (!h || typeof h !== "object") continue;
+                const sec = clamp(h.sec, 0, 600);
+                if (sec == null) continue;
+                const label = (typeof h.label === "string") ? h.label.trim().slice(0, 80) : "";
+                const item = { sec: Math.round(sec * 10) / 10 };
+                if (label) item.label = label;
+                outHolds.push(item);
+              }
+              if (outHolds.length) res.holds = outHolds;
+            }
+
+            return {
+              _id: sid,
+              type: "session",
+              startAtEpochMs: start,
+              createdAt,
+              method,
+              results: res
+            };
+          };
+
+          const clean = [];
+          let skippedInvalid = 0;
+
+          const maxN = Math.min(sessions.length, MAX_IMPORT);
+          for (let i = 0; i < maxN; i++) {
+            const d = sanitizeSessionDoc(sessions[i]);
+            if (d) clean.push(d);
+            else skippedInvalid++;
+
+            if (IMPORT_YIELD_EVERY > 0 && (i + 1) % IMPORT_YIELD_EVERY === 0) {
+              await rafYield();
+            }
+          }
+
+          if (!clean.length) throw new Error("No valid sessions to import");
+
+          if (db) {
+            // Merge-by-rev: if an _id already exists locally, update it instead of creating a conflict.
+            try {
+              const ids = clean.map(d => d._id);
+              const existing = await db.allDocs({ keys: ids });
+              const revById = new Map();
+              (existing && existing.rows ? existing.rows : []).forEach((r) => {
+                if (r && r.key && r.value && r.value.rev) revById.set(r.key, r.value.rev);
+              });
+              clean.forEach((d) => {
+                const rev = revById.get(d._id);
+                if (rev) d._rev = rev;
+              });
+            } catch (e) {
+              console.warn("Import merge rev lookup failed:", e);
+            }
+
+            const res = await db.bulkDocs(clean);
+            let importedOk = clean.length;
+            let errors = 0;
+            if (Array.isArray(res)) {
+              importedOk = 0;
+              for (const r of res) {
+                if (r && r.error) errors++;
+                else importedOk++;
+              }
+              if (errors) {
+                const anyErr = res.find(x => x && x.error);
+                if (anyErr) console.warn("Import had errors (first):", anyErr);
+              }
+            }
+
+            return {
+              imported: importedOk,
+              skippedInvalid,
+              capped: sessions.length > MAX_IMPORT,
+              totalInFile: sessions.length,
+              processed: maxN
+            };
+          }
+
+          const list = localSessionsRead().filter(x => x && x.type === "session");
+          // merge unique by _id
+          const map = new Map();
+          for (const d of list) map.set(d._id, d);
+          for (const d of clean) map.set(d._id, d);
+          const merged = Array.from(map.values()).sort((a, b) => (b.startAtEpochMs || 0) - (a.startAtEpochMs || 0));
+          localSessionsWrite(merged);
+
+          return {
+            imported: clean.length,
+            skippedInvalid,
+            capped: sessions.length > MAX_IMPORT,
+            totalInFile: sessions.length,
+            processed: maxN
+          };
+        } catch (e) {
+          console.warn("Import failed:", e);
+          throw e;
+        }
+      }
+
+
+      function renderHistory(list) {
+        if (!el.historyList || !el.historyHint) return;
+
+        const numOrNull = (v) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? n : null;
+        };
+
+        el.historyList.innerHTML = "";
+        if (!list || list.length === 0) {
+          el.historyHint.textContent = "No sessions saved yet.";
+          if (el.historyMoreBtn) el.historyMoreBtn.disabled = true;
+          return;
+        }
+
+        const moreTxt = historyHasMore ? " (Load more for older)" : "";
+        el.historyHint.textContent = `Showing ${list.length} session${list.length === 1 ? "" : "s"}${moreTxt}`;
+        if (el.historyMoreBtn) el.historyMoreBtn.disabled = !historyHasMore;
+
+        list.forEach((s) => {
+          const wrap = document.createElement("div");
+          wrap.className = "sessionItem";
+
+          const dt = new Date(s.startAtEpochMs || s.createdAt || Date.now());
+          const title = document.createElement("div");
+          title.className = "sessionTitle";
+          title.textContent = dt.toLocaleString();
+
+          const meta = document.createElement("div");
+          meta.className = "sessionMeta";
+
+          const mLabel = (s.method === "M1") ? "Method 1" : (s.method === "M2") ? "Method 2" : "Morning CP";
+          const r = (s.results || {});
+          const parts = [];
+
+          const pulseStart = numOrNull(r.pulseStartBpm);
+          const pulseEnd = numOrNull(r.pulseEndBpm);
+          const cpStart = numOrNull(r.cpStartSec);
+          const cpEnd = numOrNull(r.cpEndSec);
+          const morningCp = numOrNull(r.morningCpSec);
+          if (s.method === "CP") {
+            if (morningCp != null) parts.push(`CP ${Number(morningCp).toFixed(1)}s`);
+          } else {
+            if (pulseStart != null && pulseEnd != null) {
+              const d = Number(pulseEnd) - Number(pulseStart);
+              parts.push(`Pulse ${Math.round(pulseStart)} → ${Math.round(pulseEnd)} (Δ${Math.round(d)})`);
+            } else if (pulseStart != null) {
+              parts.push(`Pulse start ${Math.round(pulseStart)}`);
+            } else if (pulseEnd != null) {
+              parts.push(`Pulse end ${Math.round(pulseEnd)}`);
+            }
+
+            if (cpStart != null && cpEnd != null) {
+              const d = Number(cpEnd) - Number(cpStart);
+              parts.push(`CP ${Number(cpStart).toFixed(1)}s → ${Number(cpEnd).toFixed(1)}s (Δ${Number(d).toFixed(1)}s)`);
+            } else if (cpStart != null) {
+              parts.push(`CP start ${Number(cpStart).toFixed(1)}s`);
+            } else if (cpEnd != null) {
+              parts.push(`CP end ${Number(cpEnd).toFixed(1)}s`);
+            }
+
+            if (Array.isArray(r.holds) && r.holds.length) {
+              const best = Math.max(...r.holds.map(h => Number(h?.sec)).filter(Number.isFinite));
+              if (Number.isFinite(best)) parts.push(`Holds ${r.holds.length} (best ${best.toFixed(1)}s)`);
+              else parts.push(`Holds ${r.holds.length}`);
+            }
+          }
+
+          meta.textContent = `${mLabel}${parts.length ? " | " + parts.join(" | ") : ""}`;
+
+          const actions = document.createElement("div");
+          actions.className = "sessionActions";
+
+          const del = document.createElement("button");
+          del.className = "smallBtn subtle";
+          del.textContent = "Delete";
+          del.style.background = "rgba(255,92,92,0.14)";
+          del.style.border = "1px solid rgba(255,92,92,0.28)";
+          del.addEventListener("click", async () => {
+            await deleteSessionWithUndo(s);
+          });
+
+          actions.appendChild(del);
+
+          const top = document.createElement("div");
+          top.className = "sessionTop";
+          const left = document.createElement("div");
+          left.appendChild(title);
+          left.appendChild(meta);
+          top.appendChild(left);
+          top.appendChild(actions);
+
+          wrap.appendChild(top);
+          el.historyList.appendChild(wrap);
+        });
+      }
+
+
+            async function refreshSessionsUI() {
+        try {
+          if (el.historyHint) el.historyHint.textContent = "Loading...";
+          historyResetPaging();
+
+          await refreshHistoryChartsUI();
+          await historyLoadMore();
+        } catch (e) {
+          if (el.historyHint) el.historyHint.textContent = "History unavailable.";
+          if (el.historyMoreBtn) el.historyMoreBtn.disabled = true;
+        }
+      }
+
+      /* CouchDB sync (optional) */
+      let syncHandler = null;
+      let syncConnected = false;
+      let syncRetryMs = 800;
+      let syncRetryTimer = null;
+
+      function setSyncUI(ok, text) {
+        syncConnected = ok;
+        if (el.syncDot) {
+          el.syncDot.classList.remove("dotOk", "dotBad");
+          el.syncDot.classList.add(ok ? "dotOk" : "dotBad");
+        }
+        if (el.syncText) el.syncText.textContent = text;
+        if (el.syncBtn) {
+          el.syncBtn.textContent = ok ? "Disconnect" : "Connect";
+          el.syncBtn.classList.toggle("active", ok);
+        }
+      }
+
+      function stopSync(clearStored, finalText) {
+        if (syncHandler) {
+          try { syncHandler.cancel(); } catch (e) { console.error(e); }
+          syncHandler = null;
+        }
+        if (syncRetryTimer) {
+          clearTimeout(syncRetryTimer);
+          syncRetryTimer = null;
+        }
+        syncConnected = false;
+        setSyncUI(false, finalText || "Disconnected");
+        syncRetryMs = 800;
+
+        if (clearStored) {
+          clearCouchPassStored(true);
+          settings.rememberPass = false;
+          renderRememberPassUI();
+          saveSettingsLocal();
+        } else {
+          // Always clear session copy on disconnect (keep local only if remember enabled)
+          clearCouchPassStored(false);
+          if (!settings.rememberPass) {
+            try { cookieDel(COUCH_PASS_COOKIE_KEY); } catch (e) { console.error(e); } }
+        }
+      }
+
+      function scheduleSyncRetry() {
+        const wait = Math.min(30000, syncRetryMs);
+        syncRetryMs = Math.min(30000, Math.floor(syncRetryMs * 1.7));
+        setSyncUI(false, `Retrying in ${Math.round(wait / 1000)}s...`);
+
+        if (syncRetryTimer) {
+          clearTimeout(syncRetryTimer);
+          syncRetryTimer = null;
+        }
+
+        syncRetryTimer = setTimeout(() => {
+          syncRetryTimer = null;
+          if (!syncConnected && navigator.onLine) startSync();
+        }, wait);
+      }
+
+      function validateRemoteUrl(serverUrl) {
+        const url = String(serverUrl || "").trim();
+        if (!url) return { ok: false, msg: "Server URL is empty" };
+        let u;
+        try { u = new URL(url); } catch (e) { return { ok: false, msg: "Invalid Server URL" }; }
+        if (u.protocol !== "http:" && u.protocol !== "https:") return { ok: false, msg: "URL must start with http:// or https://" };
+
+  if (u.username || u.password) {
+    return { ok: false, msg: "Do not include username/password in URL. Use the fields below." };
+  }
+        if (location.protocol === "https:" && u.protocol === "http:") return { ok: false, msg: "Blocked by browser: use https URL (mixed content)" };
+        return { ok: true, msg: "OK" };
+      }
+      function buildDbUrl(serverUrl, dbName) {
+        const base = String(serverUrl || "").trim().replace(/\/+$/, "");
+        const name = String(dbName || "").trim();
+        if (!base || !name) return "";
+        return `${base}/${encodeURIComponent(name)}`;
+      }
+      function buildDbUrlWithCreds(serverUrl, dbName, user, pass) {
+        try {
+          const base = String(serverUrl || "").trim().replace(/\/+$/, "");
+          const name = String(dbName || "").trim();
+          if (!base || !name || !user || !pass) return "";
+          const u = new URL(base);
+          u.username = "";
+          u.password = "";
+          u.username = String(user); // let URL handle encoding (avoid double-encoding)
+          u.password = String(pass); // let URL handle encoding (avoid double-encoding)
+          u.pathname = u.pathname.replace(/\/+$/, "") + "/" + encodeURIComponent(name);
+          return u.toString();
+        } catch (e) { return ""; }
+      }
+      function makeRemoteDb(dbUrl, user, pass) {
+        return new window.PouchDB(dbUrl, { skip_setup: true, auth: { username: String(user || ""), password: String(pass || "") } });
+      }
+      function makeRemoteDbCredUrl(dbUrlWithCreds) {
+        return new window.PouchDB(dbUrlWithCreds, { skip_setup: true });
+      }
+      function redactUrlCreds(s) {
+  const t = String(s || "");
+  // Redact URL userinfo: https://user:pass@host -> https://<redacted>@host
+  return t.replace(/(https?:\/\/)([^\s\/]*?)@/gi, "$1<redacted>@");
+}
+
+function couchErrToText(err) {
+        if (!err) return "Unknown error";
+        const status = err.status != null ? String(err.status) : "";
+        const name = err.name ? String(err.name) : "";
+        const msg = err.message ? redactUrlCreds(String(err.message)) : "";
+        const reason = err.reason ? redactUrlCreds(String(err.reason)) : "";
+        const joined = [status, name, msg, reason].filter(Boolean).join(" | ");
+        if (!status && name === "TypeError" && /fetch/i.test(msg)) return "Failed to fetch (CORS/HTTPS/network)";
+        return joined || "Unknown error";
+      }
+
+      async function startSync() {
+        try {
+          initDbMaybe();
+          if (!db) { setSyncUI(false, "No local DB"); return; }
+          if (typeof window.PouchDB === "undefined") { setSyncUI(false, "PouchDB missing"); return; }
+
+          const serverUrl = String((el.couchUrl && el.couchUrl.value) || "").trim();
+          const dbName = String((el.couchDbName && el.couchDbName.value) || "").trim();
+          const user = String((el.couchUser && el.couchUser.value) || "").trim();
+          const pass = String(((el.couchPass && el.couchPass.value) || settings.couchPass || ""));
+
+          const v = validateRemoteUrl(serverUrl);
+          if (!v.ok) { setSyncUI(false, v.msg); return; }
+
+          const dbUrl = buildDbUrl(serverUrl, dbName);
+          if (!dbName) { setSyncUI(false, "Database name is empty"); return; }
+          if (!dbUrl) { setSyncUI(false, "Invalid URL"); return; }
+          if (!user || !pass) { setSyncUI(false, "Missing username/password"); return; }
+
+          settings.couchUrl = serverUrl;
+          settings.couchDbName = dbName;
+          settings.couchUser = user;
+          settings.couchPass = pass;          if (settings.rememberPass) saveCouchPassCookie(pass);
+          else { try { cookieDel(COUCH_PASS_COOKIE_KEY); } catch (e) { console.error(e); } }
+
+          saveSettingsLocal();
+
+          if (syncHandler) {
+            try { syncHandler.cancel(); } catch (e) { console.error(e); }
+            syncHandler = null;
+          }
+          if (syncRetryTimer) {
+            clearTimeout(syncRetryTimer);
+            syncRetryTimer = null;
+          }
+          syncRetryMs = 800;
+
+          let remote = makeRemoteDb(dbUrl, user, pass);
+          setSyncUI(true, "Testing connection...");
+
+          try {
+            await remote.info();
+          } catch (eInfo) {
+            const st = eInfo && eInfo.status;
+            if (st === 401 || st === 403) {
+              const urlWithCreds = buildDbUrlWithCreds(serverUrl, dbName, user, pass);
+              if (urlWithCreds) {
+                remote = makeRemoteDbCredUrl(urlWithCreds);
+                await remote.info();
+              } else {
+                throw eInfo;
+              }
+            } else {
+              throw eInfo;
+            }
+          }
+
+          syncHandler = window.PouchDB.sync(db, remote, { live: true, retry: true });
+
+          setSyncUI(true, "Connecting...");
+          syncHandler.on("change", () => setSyncUI(true, "Synced (live)"));
+          syncHandler.on("paused", () => setSyncUI(true, navigator.onLine ? "Synced (idle)" : "Offline (will retry)"));
+          syncHandler.on("active", () => setSyncUI(true, "Syncing..."));
+          syncHandler.on("denied", () => { stopSync(false, "Denied"); });
+          syncHandler.on("error", (err) => {
+            const status = err && err.status;
+            if (status === 401) { stopSync(false, "401 Unauthorized"); return; }
+            if (status === 403) { stopSync(false, `403 Forbidden: ${couchErrToText(err)}`); return; }
+            const t = couchErrToText(err);
+            stopSync(false, `Sync error: ${t} (will retry)`);
+            scheduleSyncRetry();
+          });
+        } catch (err) {
+          const status = err && err.status;
+          if (status === 401) { setSyncUI(false, "401 Unauthorized"); return; }
+          if (status === 403) { setSyncUI(false, "403 Forbidden: " + couchErrToText(err)); return; }
+          if (status === 404) { setSyncUI(false, "404 Not found"); return; }
+          const t = couchErrToText(err);
+          setSyncUI(false, `Failed: ${t}`);
+          if (!status) scheduleSyncRetry();
+        }
+      }
+
+      /* UI event wiring (settings) */
+      if (el.toggleSoundBtn) {
+        el.toggleSoundBtn.addEventListener("click", () => {
+          settings.sound = !settings.sound;
+          applySettingsUI();
+          saveSettingsLocal();
+        });
+      }
+
+      if (el.toggleWakeBtn) {
+        el.toggleWakeBtn.addEventListener("click", async () => {
+          if (!wakeSupported) return;
+          settings.wakeLock = !settings.wakeLock;
+          applySettingsUI();
+          saveSettingsLocal();
+          if (state !== "IDLE") {
+            if (settings.wakeLock) requestWakeLockIfEnabled();
+            else await releaseWakeLock();
+          }
+        });
+      }
+
+      // Persist Couch form fields
+      const onCouchInput = debounce(() => {
+        if (!el.couchUrl || !el.couchDbName || !el.couchUser || !el.couchPass) return;
+        settings.couchUrl = String(el.couchUrl.value || "").trim();
+        settings.couchDbName = String(el.couchDbName.value || "").trim() || "butebreath";
+        settings.couchUser = String(el.couchUser.value || "").trim();
+        settings.couchPass = String(el.couchPass.value || "");        if (settings.rememberPass) saveCouchPassCookie(settings.couchPass);
+        saveSettingsLocalDebounced();
+      }, 250);
+
+      ["input", "change"].forEach((evt) => {
+        [el.couchUrl, el.couchDbName, el.couchUser, el.couchPass].forEach((node) => {
+          if (!node) return;
+          node.addEventListener(evt, onCouchInput);
+        });
+      });
+
+      if (el.pwToggleBtn && el.couchPass) {
+        el.pwToggleBtn.addEventListener("click", () => {
+          el.couchPass.type = (el.couchPass.type === "password") ? "text" : "password";
+        });
+      }
+
+      if (el.syncBtn) {
+        el.syncBtn.addEventListener("click", () => {
+          if (syncConnected) stopSync(false, "Disconnected");
+          else startSync();
+        });
+      }
+
+      // Remember password toggle (button based)
+      if (el.rememberPassBtn) {
+        el.rememberPassBtn.addEventListener("pointerup", (ev) => {
+          try { ev.preventDefault(); ev.stopPropagation(); } catch (e) { console.error(e); }
+          settings.rememberPass = !settings.rememberPass;
+
+          const currentPass = String(((el.couchPass && el.couchPass.value) || settings.couchPass || ""));
+          if (settings.rememberPass && currentPass) {
+            settings.couchPass = currentPass;            saveCouchPassCookie(currentPass);
+          }
+          if (!settings.rememberPass) {
+            try { cookieDel(COUCH_PASS_COOKIE_KEY); } catch (e) { console.error(e); } }
+
+          renderRememberPassUI();
+          saveSettingsLocal();
+        });
+      }
+
+      if (el.forgetPassBtn) {
+        el.forgetPassBtn.addEventListener("pointerup", (ev) => {
+          try { ev.preventDefault(); ev.stopPropagation(); } catch (e) { console.error(e); }
+          clearCouchPassStored(true);
+          if (el.couchPass) el.couchPass.value = "";
+          settings.rememberPass = false;
+          renderRememberPassUI();
+          saveSettingsLocal();
+          setSyncUI(false, navigator.onLine ? "Not connected" : "Offline");
+        });
+      }
+
+      window.addEventListener("online", () => {
+        loadCouchPassCookie();
+        setTimeout(() => {
+          if (!syncConnected && settings.couchUrl && settings.couchDbName && settings.couchUser && settings.couchPass) startSync();
+          else if (!syncConnected) setSyncUI(false, "Not connected");
+        }, 30);
+      });
+      window.addEventListener("offline", () => {
+        if (syncConnected) setSyncUI(true, "Offline (will retry)");
+        else setSyncUI(false, "Offline");
+      });
+
+            /* init */
+      setSyncUI(false, navigator.onLine ? "Not connected" : "Offline");
+      // Auto-connect when online if saved cookie credentials exist (Remember password).
+      if (navigator.onLine) {
+        setTimeout(() => {
+          try {
+            if (!syncConnected && settings.couchUrl && settings.couchDbName && settings.couchUser && settings.couchPass) startSync();
+          } catch (e) { console.error(e); }
+        }, 60);
+      }
+/* ---------------- Practice logic ---------------- */
+      let curMethod = "M1";
+      let state = "IDLE";
+      let stepIdx = 0;
+      let flow = [];
+      let timer = null;
+
+      // Results (numbers)
+      let sessionResults = {
+        pulseStartBpm: null,
+        cpStartSec: null,
+        pulseEndBpm: null,
+        cpEndSec: null,
+        morningCpSec: null,
+        holds: []
+      };
+
+      const txt = {
+        pulse: "Measure and enter your pulse (BPM).",
+        cp: "Start hold after normal exhale. Tap Stop when first strong urge to breathe.",
+        vsb: "Breathe very softly, minimal air. Stay relaxed.",
+        recovery: "Nasal breathing. Relax shoulders. Do not over-breathe.",
+        suppress: "Rapid shallow breathing for suppression stage only.",
+        mp1: "Maximum Pause 1: Hold after exhale. Stop at first strong urge.",
+        mp2: "Maximum Pause 2: Hold after exhale. Stop at first strong urge.",
+        mp3: "Maximum Pause 3: Hold after exhale. Stop at first strong urge."
+      };
+
+      function setMethod(m) {
+        curMethod = m;
+
+        el.m1.classList.toggle("active", m === "M1");
+        el.m2.classList.toggle("active", m === "M2");
+        el.mCP.classList.toggle("active", m === "CP");
+
+        el.box1.classList.toggle("hidden", m !== "M1");
+        el.box2.classList.toggle("hidden", m !== "M2");
+        el.boxCP.classList.toggle("hidden", m !== "CP");
+
+        // Switching method should reset UI so Start/Finished state does not leak across methods.
+        // If a session is running, this abandons it.
+        if (state !== "IDLE" || (el.startBtn && el.startBtn.textContent === "Restart") || stepIdx > 0) {
+          try { resetAll(); } catch (e) { console.error(e); }
+        }
+
+
+        if (m === "M1") el.sub.textContent = "Method 1";
+        if (m === "M2") el.sub.textContent = "Method 2";
+        if (m === "CP") el.sub.textContent = "Morning CP";
+
+        try { if (el.practiceCustomDrawer) el.practiceCustomDrawer.classList.add("hidden"); } catch (e) { console.error(e); }
+        try { savePracticePrefs(); } catch (e) { console.error(e); }
+      }
+
+      el.m1.addEventListener("click", () => setMethod("M1"));
+      el.m2.addEventListener("click", () => setMethod("M2"));
+      el.mCP.addEventListener("click", () => setMethod("CP"));
+
+      // Preset / Custom toggles (drawer, Reso-like)
+      const p1 = document.getElementById("p1");
+      const c1 = document.getElementById("c1");
+      const p2 = document.getElementById("p2");
+      const c2 = document.getElementById("c2");
+
+      let m1Mode = "preset"; // 'preset' | 'custom'
+      let m2Mode = "preset"; // 'preset' | 'custom'
+
+      const PRACTICE_PREF_KEY = "bb.practice.prefs.v1";
+
+      function readPracticePrefs() {
+        try {
+          const raw = localStorage.getItem(PRACTICE_PREF_KEY);
+          if (!raw) return null;
+          const obj = JSON.parse(raw);
+          return (obj && typeof obj === "object") ? obj : null;
+        } catch (e) { return null; }
+      }
+      function writePracticePrefs(obj) {
+        try { localStorage.setItem(PRACTICE_PREF_KEY, JSON.stringify(obj || {})); } catch (e) { }
+      }
+      function savePracticePrefs() {
+        const prefs = {
+          method: curMethod,
+          m1Mode,
+          m2Mode,
+          m1: {
+            cycles: sanitizeNumericInput(document.getElementById("inC1")?.value, 1, 20, 1),
+            rbSec: sanitizeNumericInput(document.getElementById("inRB1")?.value, 0, 600, 0),
+            coolSec: sanitizeNumericInput(document.getElementById("inCL1")?.value, 0, 600, 0)
+          },
+          m2: {
+            vsbSec: sanitizeNumericInput(document.getElementById("inRB2")?.value, 0, 600, 0),
+            recoverySec: sanitizeNumericInput(document.getElementById("inRC2")?.value, 0, 600, 0),
+            suppressSec: sanitizeNumericInput(document.getElementById("inSUP2")?.value, 0, 600, 0)
+          }
+        };
+        writePracticePrefs(prefs);
+      }
+
+      function setBtnActive(btn, on) { if (btn) btn.classList.toggle("active", !!on); }
+
+      function openPracticeCustomDrawer(which) {
+        if (!el.practiceCustomDrawer) return;
+        el.practiceCustomDrawer.classList.remove("hidden");
+        el.practiceCustomDrawer.setAttribute("aria-hidden", "false");
+
+        if (el.customM1Fields) el.customM1Fields.classList.toggle("hidden", which !== "M1");
+        if (el.customM2Fields) el.customM2Fields.classList.toggle("hidden", which !== "M2");
+
+        if (el.practiceCustomTitle) {
+          el.practiceCustomTitle.textContent = (which === "M1") ? "Method 1 custom settings" : "Method 2 custom settings";
+        }
+      }
+      function closePracticeCustomDrawer() {
+        if (!el.practiceCustomDrawer) return;
+        el.practiceCustomDrawer.classList.add("hidden");
+        el.practiceCustomDrawer.setAttribute("aria-hidden", "true");
+      }
+
+      function updateCustomUI() {
+        setBtnActive(p1, m1Mode === "preset");
+        setBtnActive(c1, m1Mode === "custom");
+setBtnActive(p2, m2Mode === "preset");
+        setBtnActive(c2, m2Mode === "custom");
+}
+
+      function applyM1Preset() {
+        document.getElementById("inC1").value = 3;
+        document.getElementById("inRB1").value = 180;
+        document.getElementById("inCL1").value = 120;
+        m1Mode = "preset";
+        updateCustomUI();
+        savePracticePrefs();
+      }
+      function enableM1Custom() {
+        m1Mode = "custom";
+        updateCustomUI();
+        openPracticeCustomDrawer("M1");
+        savePracticePrefs();
+      }
+
+      function applyM2Preset() {
+        document.getElementById("inRB2").value = 180;
+        document.getElementById("inRC2").value = 30;
+        document.getElementById("inSUP2").value = 10;
+        m2Mode = "preset";
+        updateCustomUI();
+        savePracticePrefs();
+      }
+      function enableM2Custom() {
+        m2Mode = "custom";
+        updateCustomUI();
+        openPracticeCustomDrawer("M2");
+        savePracticePrefs();
+      }
+
+      if (p1) p1.addEventListener("click", applyM1Preset);
+      if (c1) c1.addEventListener("click", enableM1Custom);
+      if (p2) p2.addEventListener("click", applyM2Preset);
+      if (c2) c2.addEventListener("click", enableM2Custom);
+      if (el.closePracticeCustomBtn) el.closePracticeCustomBtn.addEventListener("click", closePracticeCustomDrawer);
+      if (el.practiceCustomDrawer) {
+        el.practiceCustomDrawer.addEventListener("pointerup", (ev) => {
+          if (ev.target === el.practiceCustomDrawer) closePracticeCustomDrawer();
+        });
+      }
+
+      // Persist input edits
+      ["inC1","inRB1","inCL1","inRB2","inRC2","inSUP2"].forEach((id) => {
+        const inp = document.getElementById(id);
+        if (!inp) return;
+        inp.addEventListener("input", () => savePracticePrefs());
+        inp.addEventListener("change", () => savePracticePrefs());
+      });
+
+      function restorePracticePrefs() {
+        const p = readPracticePrefs();
+        if (!p) {
+          applyM1Preset();
+          applyM2Preset();
+          setMethod("M1");
+          updateCustomUI();
+          return;
+        }
+
+        if (p.m1 && typeof p.m1 === "object") {
+          if (Number.isFinite(Number(p.m1.cycles))) document.getElementById("inC1").value = sanitizeNumber(p.m1.cycles, 1, 20, 1);
+          if (Number.isFinite(Number(p.m1.rbSec))) document.getElementById("inRB1").value = sanitizeNumber(p.m1.rbSec, 0, 600, 0);
+          if (Number.isFinite(Number(p.m1.coolSec))) document.getElementById("inCL1").value = sanitizeNumber(p.m1.coolSec, 0, 600, 0);
+        }
+        if (p.m2 && typeof p.m2 === "object") {
+          if (Number.isFinite(Number(p.m2.vsbSec))) document.getElementById("inRB2").value = sanitizeNumber(p.m2.vsbSec, 0, 600, 0);
+          if (Number.isFinite(Number(p.m2.recoverySec))) document.getElementById("inRC2").value = sanitizeNumber(p.m2.recoverySec, 0, 600, 0);
+          if (Number.isFinite(Number(p.m2.suppressSec))) document.getElementById("inSUP2").value = sanitizeNumber(p.m2.suppressSec, 0, 600, 0);
+        }
+
+        if (p.m1Mode === "custom" || p.m1Mode === "preset") m1Mode = p.m1Mode;
+        if (p.m2Mode === "custom" || p.m2Mode === "preset") m2Mode = p.m2Mode;
+
+        if (p.method === "M1" || p.method === "M2" || p.method === "CP") setMethod(p.method);
+
+        updateCustomUI();
+      }
+
+      /* ---------------- Worker + RAF smooth ring (Reso pattern) ---------------- */
+      let tWorker = null;
+      let runToken = 0;
+
+      const renderState = {
+        running: false,
+        mode: "",          // 'countdown' | 'stopwatch'
+        plannedSec: 0,
+        startPerfMs: 0,
+        rafId: 0,
+        useWorker: false
+      };
+
+      function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+
+      function stopTiming() {
+        renderState.running = false;
+        if (renderState.rafId) cancelAnimationFrame(renderState.rafId);
+        renderState.rafId = 0;
+        clearInterval(timer);
+        timer = null;
+        if (tWorker) tWorker.postMessage({ cmd: "stop", token: runToken });
+        setRingSmoothMode(false);
+      }
+
+      function ensureWorker() {
+        if (tWorker) return tWorker;
+        try { tWorker = new Worker("./timer.worker.js"); } catch (e) { tWorker = null; }
+        if (!tWorker) return null;
+
+        tWorker.onmessage = (ev) => {
+          const msg = ev && ev.data ? ev.data : null;
+          if (!msg || typeof msg !== "object") return;
+          if (Number(msg.token || 0) !== runToken) return;
+
+          if (msg.type === "progress") {
+            const perfNow = performance.now();
+            const elapsedSec = Number(msg.elapsedSec || 0);
+            renderState.startPerfMs = perfNow - (elapsedSec * 1000);
+            return;
+          }
+
+          if (msg.type === "complete") {
+            if (renderState.mode === "countdown") {
+              stopTiming();
+              stepIdx++;
+              runStep();
+            }
+          }
+        };
+
+        return tWorker;
+      }
+
+      function rafLoop(now) {
+        if (!renderState.running) return;
+
+        const elapsedSec = Math.max(0, (now - renderState.startPerfMs) / 1000);
+
+        if (renderState.mode === "countdown") {
+          const dur = Math.max(0.001, Number(renderState.plannedSec || 0));
+          const rem = Math.max(0, dur - elapsedSec);
+
+          const p = clamp(elapsedSec / dur, 0, 1);
+          ringSetOffset(CIRC * p);
+          el.timer.textContent = (rem <= 0 ? "0" : String(Math.ceil(rem - 1e-9))) + "s";
+
+          if (!renderState.useWorker && rem <= 0) {
+            stopTiming();
+            stepIdx++;
+            runStep();
+            return;
+          }
+        } else if (renderState.mode === "stopwatch") {
+          el.timer.textContent = String(Math.floor(elapsedSec)) + "s";
+          // Loop the animation every 60 seconds instead of clamping at 1
+          const p = (elapsedSec % 60) / 60;
+          ringSetOffset(CIRC * (1 - p));
+        }
+
+        renderState.rafId = requestAnimationFrame(rafLoop);
+      }
+
+      function startCountdown(durSec) {
+        stopTiming();
+        runToken++;
+        const dur = Math.max(0, Number(durSec || 0));
+
+        renderState.mode = "countdown";
+        renderState.plannedSec = dur;
+        renderState.startPerfMs = performance.now();
+
+        const w = ensureWorker();
+        renderState.useWorker = !!w;
+
+        ringSetOffset(0);
+        setRingSmoothMode(true);
+
+        if (w) w.postMessage({ cmd: "start", token: runToken, mode: "countdown", plannedSec: dur });
+
+        renderState.running = true;
+        renderState.rafId = requestAnimationFrame(rafLoop);
+      }
+
+      function startStopwatch() {
+        stopTiming();
+        runToken++;
+
+        renderState.mode = "stopwatch";
+        renderState.plannedSec = 0;
+        renderState.startPerfMs = performance.now();
+
+        const w = ensureWorker();
+        renderState.useWorker = !!w;
+
+        ringSetOffset(CIRC);
+        setRingSmoothMode(true);
+
+        if (w) w.postMessage({ cmd: "start", token: runToken, mode: "stopwatch", plannedSec: 0 });
+
+        renderState.running = true;
+        renderState.rafId = requestAnimationFrame(rafLoop);
+      }
+
+      function getFlow() {
+        if (curMethod === "M1") {
+          const cycles = sanitizeNumericInput(document.getElementById("inC1").value, 1, 20, 1);
+          const rbSec = sanitizeNumericInput(document.getElementById("inRB1").value, 0, 600, 0);
+          const coolSec = sanitizeNumericInput(document.getElementById("inCL1").value, 0, 600, 0);
+
+          const f = [
+            { n: "Baseline", c: "Initial pulse", sub: "Measure pulse. This is your baseline for the session.", t: "P", key: "pulseStartBpm" },
+            { n: "Baseline", c: "Initial CP", sub: "Start hold after normal exhale. Stop at the very first sign of breath hunger.", t: "M", key: "cpStartSec" }
+          ];
+
+          for (let i = 1; i <= cycles; i++) {
+            f.push({ n: "Cycle " + i, c: "Reduced breathing", sub: "1s In â€¢ 2s Out â€¢ 1-15s Hold. Relax your chest on exhale.", t: "A", d: rbSec });
+            f.push({ n: "Cycle " + i, c: "Intermediate hold", sub: "Stop at the very first urge. Stay relaxed after the hold.", t: "M", key: "hold" });
+          }
+
+          if (coolSec > 0) f.push({ n: "Finish", c: "Cool down", sub: "Nasal breathing. Maintain a light sense of air hunger.", t: "A", d: coolSec });
+
+          f.push({ n: "Final", c: "Final CP", sub: "Start hold after normal exhale. Stop at the very first sign of breath hunger.", t: "M", key: "cpEndSec" });
+          f.push({ n: "Final", c: "Final pulse", sub: "Measure BPM. Ideally, it should be lower than Initial.", t: "P", key: "pulseEndBpm" });
+
+          return f;
+        }
+
+        if (curMethod === "M2") {
+          const vsbSec = sanitizeNumericInput(document.getElementById("inRB2").value, 0, 600, 0);
+          const recoverySec = sanitizeNumericInput(document.getElementById("inRC2").value, 0, 600, 0);
+          const suppressSec = sanitizeNumericInput(document.getElementById("inSUP2").value, 0, 600, 0);
+
+          const rec2 = recoverySec * 2;
+          const sup2 = suppressSec * 2;
+          const sup3 = suppressSec * 3;
+
+          return [
+            { n: "Baseline", c: "Initial pulse", sub: "Measure and enter your pulse (BPM).", t: "P", key: "pulseStartBpm" },
+            { n: "Baseline", c: "Initial CP", sub: "Start hold after normal exhale. Tap Stop when first strong urge to breathe.", t: "M", key: "cpStartSec" },
+
+            { n: "Build-up", c: "Very shallow breathing", sub: "Breathe very softly, minimal air. Stay relaxed.", t: "A", d: vsbSec },
+            { n: "Recovery", c: "Recovery", sub: "Breathe naturally and let the sense of air hunger fade. Nasal breathing only.", t: "A", d: recoverySec },
+
+            { n: "Stage A", c: "MP 1", sub: "Light Effort: Hold while seated upright. Stop at first strong urge.", t: "M", key: "hold" },
+            { n: "Suppress", c: "Suppress", sub: "Suppress the urge to take deep breaths by using very rapid and shallow breaths.", t: "A", d: suppressSec },
+            { n: "Build-up", c: "Very shallow breathing", sub: "Breathe very softly, minimal air. Stay relaxed.", t: "A", d: vsbSec },
+            { n: "Recovery", c: "Recovery", sub: "Breathe naturally and let the sense of air hunger fade. Nasal breathing only.", t: "A", d: recoverySec },
+
+            { n: "Stage B", c: "MP 2", sub: "Medium Effort: Add gentle rocking and twisting to extend the hold.", t: "M", key: "hold" },
+            { n: "Suppress", c: "Suppress", sub: "Suppress the urge to take deep breaths by using very rapid and shallow breaths.", t: "A", d: sup2 },
+            { n: "Build-up", c: "Very shallow breathing", sub: "Breathe very softly, minimal air. Stay relaxed.", t: "A", d: vsbSec },
+            { n: "Recovery", c: "Recovery", sub: "Breathe naturally and let the sense of air hunger fade. Nasal breathing only.", t: "A", d: rec2 },
+
+            { n: "Stage C", c: "MP 3", sub: "Full Effort: Add rocking/twisting, then stand and walk to extend the hold.", t: "M", key: "hold" },
+            { n: "Suppress", c: "Suppress", sub: "Suppress the urge to take deep breaths by using very rapid and shallow breaths.", t: "A", d: sup3 },
+            { n: "Build-up", c: "Very shallow breathing", sub: "Breathe very softly, minimal air. Stay relaxed.", t: "A", d: vsbSec },
+            { n: "Recovery", c: "Recovery", sub: "Breathe naturally and let the sense of air hunger fade. Nasal breathing only.", t: "A", d: rec2 },
+
+            { n: "Final", c: "Final CP", sub: "Start hold after normal exhale. Tap Stop when first strong urge to breathe.", t: "M", key: "cpEndSec" },
+            { n: "Final", c: "Final pulse", sub: "Measure and enter your pulse (BPM).", t: "P", key: "pulseEndBpm" }
+          ];
+        }
+
+        // Morning CP only
+        return [
+          { n: "Morning", c: "Morning CP", sub: "Start hold after normal exhale. Stop at the very first sign of breath hunger.", t: "M", key: "morningCpSec" }
+        ];
+      }
+
+      function maybePlayStepStartSound(s) {
+        if (!s || !settings.sound) return;
+        if (s.t === "A") {
+          if (String(s.n || "").toLowerCase() === "suppress" || String(s.c || "").toLowerCase().includes("suppress")) playSuppressPrompt();
+          else playSoftTick();
+        }
+      }
+
+      /* ---------------- Session state guards ---------------- */
+      let sessionCompletionLock = false;
+
+      function runStep() {
+        stopTiming();
+
+        if (stepIdx >= flow.length) { saveAndFinish(); return; }
+
+        const s = flow[stepIdx];
+el.cue.textContent = s.c;
+        el.sub.textContent = s.sub || "";
+        try { fitRingText(); } catch (e) { console.error(e); }
+        el.steps.textContent = "STEP " + (stepIdx + 1) + " / " + flow.length;
+        el.pBar.style.width = ((stepIdx / flow.length) * 100) + "%";
+
+        el.pulseArea.classList.add("hidden");
+        el.timer.classList.remove("hidden");
+
+        maybePlayStepStartSound(s);
+
+        if (s.t === "A") {
+          const dur = Math.max(0, Number(s.d || 0));
+
+          // If duration is zero, advance immediately so we never get stuck waiting for worker "complete".
+          if (dur <= 0) {
+            const prev = flow[stepIdx];
+            const next = flow[stepIdx + 1];
+            try { maybePlayAutoAdvanceCue(prev, next); } catch (e) { console.error(e); }
+            stepIdx++;
+            runStep();
+            return;
+          }
+
+          state = "AUTO";
+          el.startBtn.disabled = true;
+          el.startBtn.textContent = "Waiting...";
+          startCountdown(dur);
+          return;
+        }
+
+        if (s.t === "P") {
+          state = "READY_P";
+          el.startBtn.disabled = false;
+          el.startBtn.textContent = "Next";
+          el.pulseArea.classList.remove("hidden");
+          el.timer.classList.add("hidden");
+          el.pulseIn.value = "";
+          el.pulseIn.focus();
+          return;
+        }
+
+        // manual hold
+        state = "READY_M";
+        el.timer.textContent = "0s";
+        ringSetOffset(CIRC);
+        el.startBtn.disabled = false;
+        el.startBtn.textContent = "Start timer";
+      }
+
+            async function saveAndFinish() {
+        // Race condition guard: prevent duplicate session saves
+        if (sessionCompletionLock) {
+          console.warn('Session completion already in progress - ignoring duplicate call');
+          return;
+        }
+        
+        sessionCompletionLock = true;
+        
+        try {
+          const now = Date.now();
+          const session = {
+            startAtEpochMs: now,
+            method: curMethod,
+            results: sessionResults
+          };
+          
+          try { 
+            await saveSession(session);
+            toast('✓ Session saved', 2000);
+          } catch (e) { 
+            console.error('Failed to save session:', e);
+            toast('⚠️ Failed to save session', 4000);
+          }
+          
+          try { await refreshSessionsUI(); } catch (e) { console.error(e); }
+
+          await releaseWakeLock();
+
+          state = "IDLE";
+          el.startBtn.textContent = "Restart";
+          el.cue.textContent = "Recorded";
+          el.sub.textContent = "Data saved to history.";
+          try { fitRingText(); } catch (e) { console.error(e); }
+          try { el.pBar.style.width = "100%"; } catch (e) { console.error(e); }
+          try {
+            if (flow && flow.length) el.steps.textContent = "STEP " + flow.length + " / " + flow.length;
+            else el.steps.textContent = "DONE";
+          } catch (e) { console.error(e); }
+        } finally {
+          // Reset lock after a short delay to prevent rapid re-triggers
+          setTimeout(() => {
+            sessionCompletionLock = false;
+          }, 500);
+        }
+      }
+      function resetAll() {
+        stopTiming();
+        releaseWakeLock();
+state = "IDLE";
+        stepIdx = 0;
+        flow = [];
+el.cue.textContent = "Ready";
+        el.sub.textContent = "Select a method to begin";
+        try { fitRingText(); } catch (e) { console.error(e); }
+        el.steps.textContent = "Ready";
+        el.pBar.style.width = "0%";
+        el.timer.textContent = "0s";
+        ringSetOffset(CIRC);
+        el.startBtn.disabled = false;
+        el.startBtn.textContent = "Start";
+      }
+
+      el.resetBtn.addEventListener("click", () => location.reload());
+
+      el.startBtn.addEventListener("click", () => {
+        audioEnsureUnlocked();
+
+        if (state === "IDLE") {
+          sessionResults = { pulseStartBpm: null, cpStartSec: null, pulseEndBpm: null, cpEndSec: null, morningCpSec: null, holds: [] };
+          flow = getFlow();
+          stepIdx = 0;
+          requestWakeLockIfEnabled();
+          runStep();
+          return;
+        }
+
+        
+if (state === "READY_P") {
+  const bpm = sanitizeNumericInput(el.pulseIn.value, 0, 300, 0);
+  if (bpm < 40 || bpm > 200) {
+    toast("Pulse must be 40-200 BPM.");
+    try { el.pulseIn.focus(); } catch (e) { console.error(e); }
+    return;
+  }
+  const key = flow[stepIdx].key;
+  sessionResults[key] = bpm;
+  stepIdx++;
+  runStep();
+  return;
+}
+
+        if (state === "READY_M") {
+          state = "RUN_M";
+          el.startBtn.textContent = "Stop hold";
+          playHoldPrompt();
+          startStopwatch();
+          return;
+        }
+
+        if (state === "RUN_M") {
+          const elapsed = Math.max(0, (performance.now() - renderState.startPerfMs) / 1000);
+          stopTiming();
+
+          const s = flow[stepIdx];
+          playConfirm();
+
+          if (s.key === "cpStartSec") sessionResults.cpStartSec = elapsed;
+          else if (s.key === "cpEndSec") sessionResults.cpEndSec = elapsed;
+          else if (s.key === "morningCpSec") sessionResults.morningCpSec = elapsed;
+          else sessionResults.holds.push({ label: s.c, sec: elapsed });
+
+          stepIdx++;
+          runStep();
+          return;
+        }
+      });
+
+
+      /* ---------------- Instructions tabs ---------------- */
+      const INSTR_TAB_KEY = "bb.instructions.tab.v1";
+
+      function setInstructionsTab(tabId, persist) {
+        const tabs = document.querySelectorAll("[data-instr-tab]");
+        const panels = document.querySelectorAll("[data-instr-panel]");
+        const id = String(tabId || "general");
+
+        tabs.forEach((b) => {
+          const on = b.getAttribute("data-instr-tab") === id;
+          b.classList.toggle("active", on);
+          b.setAttribute("aria-selected", on ? "true" : "false");
+        });
+
+        panels.forEach((p) => {
+          const on = p.getAttribute("data-instr-panel") === id;
+          p.classList.toggle("active", on);
+        });
+
+        if (persist) {
+          try { localStorage.setItem(INSTR_TAB_KEY, id); } catch (e) { console.error(e); }
+        }
+      }
+
+      function initInstructionsTabs() {
+        const tabs = document.querySelectorAll("[data-instr-tab]");
+        const panels = document.querySelectorAll("[data-instr-panel]");
+        if (!tabs.length || !panels.length) return;
+
+        let saved = "general";
+        try {
+          const v = localStorage.getItem(INSTR_TAB_KEY);
+          if (v) saved = String(v);
+        } catch (e) { console.error(e); }
+
+        const exists = Array.from(tabs).some((b) => b.getAttribute("data-instr-tab") === saved);
+        setInstructionsTab(exists ? saved : "general", false);
+
+        tabs.forEach((b) => {
+          b.addEventListener("click", () => setInstructionsTab(b.getAttribute("data-instr-tab"), true));
+        });
+      }
+
+
+      /* ---------------- Boot ---------------- */
+      initInstructionsTabs();
+      initDeltaChartTabs();
+      loadSettingsLocal();
+      initDbMaybe();
+      // Sync UI + optional auto-connect on boot (if credentials exist and we are online)
+      setSyncUI(false, navigator.onLine ? "Not connected" : "Offline");
+      if (navigator.onLine && settings.couchUrl && settings.couchDbName && settings.couchUser && settings.couchPass) {
+        try { startSync(); } catch (e) { console.error(e); }
+      }
+
+      applySettingsUI();
+      restorePracticePrefs();
+      resetAll();
+      setPage("practice");
+      updateBurgerVisibility();
+            if (el.historyMoreBtn) {
+        el.historyMoreBtn.addEventListener("click", async () => {
+          try { await historyLoadMore(); } catch (e) { console.error(e); }
+        });
+      }
+
+      if (el.exportBtn) {
+        el.exportBtn.addEventListener("click", async () => {
+          try { await exportSessions(); } catch (e) { console.error(e); }
+        });
+      }
+
+      if (el.importBtn && el.importFile) {
+        let importing = false;
+
+        const openPicker = () => {
+          if (importing) return;
+          try { el.importFile.click(); } catch (e) { console.error(e); }
+        };
+
+        el.importBtn.addEventListener("click", openPicker);
+
+        el.importFile.addEventListener("change", async () => {
+          const f = el.importFile.files && el.importFile.files[0];
+          el.importFile.value = "";
+          if (!f) return;
+          if (importing) return;
+
+          importing = true;
+          try { el.importBtn.disabled = true; } catch (e) { console.error(e); }
+
+          try {
+            toast("Importing...", IMPORTING_TOAST_MS);
+
+            // Give the toast a frame to render before doing CPU-heavy work (JSON.parse, sanitization).
+            await new Promise((r) => requestAnimationFrame(() => r()));
+
+            const txt = await f.text();
+
+            await new Promise((r) => requestAnimationFrame(() => r()));
+
+            const payload = JSON.parse(txt);
+            const stats = await importSessionsFromObject(payload);
+
+            await refreshSessionsUI();
+
+            const imported = stats && Number.isFinite(Number(stats.imported)) ? Number(stats.imported) : null;
+            const skippedInvalid = stats && Number.isFinite(Number(stats.skippedInvalid)) ? Number(stats.skippedInvalid) : null;
+
+            if (imported != null && skippedInvalid != null) {
+              toast(`Imported ${imported}, skipped ${skippedInvalid} invalid.`, 5500);
+            } else {
+              toast("Import complete.", 3500);
+            }
+          } catch (e) {
+            console.warn("Import failed:", e);
+            toast("Import failed. Check the JSON file format.", 5000);
+            alert("Import failed. Check the JSON file format.");
+          } finally {
+            importing = false;
+            try { el.importBtn.disabled = false; } catch (e) { console.error(e); }
+          }
+        });
+      }
+
+      // History charts: re-render on resize (rAF throttled)
+      let historyResizeRafPending = false;
+      function onHistoryResizeRaf() {
+        if (historyResizeRafPending) return;
+        historyResizeRafPending = true;
+        requestAnimationFrame(() => {
+          historyResizeRafPending = false;
+          if (isHistoryPageActive()) {
+            try { scheduleHistoryChartsRender(); } catch (e) { console.error(e); }
+          }
+        });
+      }
+      
+      // Add resize listener only once to prevent memory leak
+      if (!window.__butebreath_resize_listener_added) {
+        window.__butebreath_resize_listener_added = true;
+        addManagedListener(window, "resize", onHistoryResizeRaf);
+      }
+
+
+
+/* Tiny PWA offline support + automatic silent updates */
+
+      async function registerInlineServiceWorker() {
+        try {
+          if (!("serviceWorker" in navigator)) return;
+
+          const UPDATE_TOAST_FLAG = "butebreath_just_updated_v1";
+          const hadController = !!navigator.serviceWorker.controller;
+
+          // Show "Updated!" toast if we just updated
+          try {
+            if (localStorage.getItem(UPDATE_TOAST_FLAG) === "1") {
+              localStorage.removeItem(UPDATE_TOAST_FLAG);
+              setTimeout(() => {
+                toast("✓ App updated to latest version", 4000, { large: true });
+              }, 800);
+            }
+          } catch (e) { console.error(e); }
+
+          // Service Worker registration
+          // updateViaCache: "none" ensures fresh fetch of sw.js on every check
+          // Version control handled by CACHE_VERSION inside sw.js
+          const reg = await navigator.serviceWorker.register("./sw.js", {
+            scope: "./",
+            updateViaCache: "none"
+          }).catch(() => null);
+
+          if (!reg) return;
+
+          // Force check for SW updates shortly after page load.
+          if (navigator.onLine) {
+            setTimeout(async () => {
+              try {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                for (const r of regs) {
+                  try { await r.update(); } catch (e) { console.error(e); }
+                }
+              } catch (e) { console.error(e); }
+            }, 2000);
+          }
+
+          // SIMPLE AUTO-UPDATE: No modal, no clicks needed
+          // Use atomic lock to prevent race conditions
+          let updateLock = false;
+          let reloadTimer = null;
+
+          function autoUpdate() {
+            // Atomic check-and-set to prevent concurrent updates
+            if (updateLock) return;
+            updateLock = true;
+
+            const w = reg.waiting || reg.installing || null;
+            
+            // Send skip waiting message
+            if (w) {
+              try { w.postMessage({ type: "SKIP_WAITING" }); } catch (e) { console.error(e); }
+            }
+
+            // Set flag to show toast after reload
+            try { localStorage.setItem(UPDATE_TOAST_FLAG, "1"); } catch (e) { console.error(e); }
+
+            // Debounced reload to avoid multiple simultaneous reloads
+            if (reloadTimer) clearTimeout(reloadTimer);
+            reloadTimer = setTimeout(() => {
+              if (window.__swReloaded) return;
+              window.__swReloaded = true;
+              try { location.reload(true); } catch (e) { location.reload(); }
+            }, 1500);
+          }
+
+          // Auto-update if SW is already waiting (only after first install)
+          if (reg.waiting && hadController) {
+            autoUpdate();
+          }
+
+          // Auto-update when new SW is detected
+          reg.addEventListener("updatefound", () => {
+            const nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener("statechange", () => {
+              if (nw.state === "installed" && hadController) {
+                autoUpdate();
+              }
+            });
+          });
+
+          // Backup: Listen for SW activation messages
+          navigator.serviceWorker.addEventListener("message", (event) => {
+            const msg = event && event.data ? event.data : null;
+            if (!msg || msg.type !== "SW_ACTIVATED") return;
+            if (updateLock && !window.__swReloaded) {
+              try { localStorage.setItem(UPDATE_TOAST_FLAG, "1"); } catch (e) { console.error(e); }
+              if (reloadTimer) clearTimeout(reloadTimer);
+              reloadTimer = setTimeout(() => {
+                window.__swReloaded = true;
+                try { location.reload(true); } catch (e) { location.reload(); }
+              }, 300);
+            }
+          });
+
+          // Check for updates on visibility change & online
+          const pingUpdate = () => { try { reg.update(); } catch (e) { console.error(e); } };
+          window.addEventListener("online", pingUpdate);
+          setInterval(() => { if (navigator.onLine) pingUpdate(); }, 5 * 60 * 1000);
+          document.addEventListener("visibilitychange", () => {
+            if (!document.hidden && navigator.onLine) {
+              setTimeout(pingUpdate, 1000);
+            }
+          });
+        } catch (e) { console.error(e); }
+      }
+
+      registerInlineServiceWorker();
+      refreshSessionsUI();
+      
+      /* ---------------- Cleanup Event Listeners ---------------- */
+      
+      // Cleanup on page unload
+      window.addEventListener('beforeunload', cleanupOnUnload);
+      
+      // Cleanup/pause when page hidden (mobile battery saving)
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          console.log('Page hidden - pausing sync and RAF');
+          
+          // Pause sync to save battery
+          if (typeof syncHandler !== 'undefined' && syncHandler && syncHandler.cancel) {
+            try {
+              syncHandler.cancel();
+            } catch (e) {
+              console.error('Sync pause error:', e);
+            }
+          }
+          
+          // Cancel RAF when page is hidden (browser throttles it anyway)
+          if (renderState && renderState.rafId) {
+            try {
+              cancelAnimationFrame(renderState.rafId);
+              renderState.rafId = 0;
+            } catch (e) {
+              console.error('RAF pause error:', e);
+            }
+          }
+        } else {
+          console.log('Page visible - resuming');
+          
+          // Resume RAF if timer was running
+          if (renderState && renderState.running && !renderState.rafId) {
+            try {
+              renderState.rafId = requestAnimationFrame(rafLoop);
+            } catch (e) {
+              console.error('RAF resume error:', e);
+            }
+          }
+          
+          // Resume sync if configured
+          if (settings && settings.couchUrl && typeof tryAutoConnectCouchDB === 'function') {
+            try {
+              setTimeout(() => tryAutoConnectCouchDB(), 1000);
+            } catch (e) {
+              console.error('Sync resume error:', e);
+            }
+          }
+        }
+      });
+      
+      console.log('ButeBreath initialized with cleanup handlers');
+    })();
+  </script>
+
+
+
+
+</body>
+</html>
