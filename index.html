@@ -165,6 +165,44 @@
     .s-item input { width: 100%; background: transparent; border: none; color: var(--accent); font-size: 15px; text-align: center; font-weight: 800; outline: none; }
     .s-item input:focus-visible { box-shadow: none; }
 
+    /* Update available overlay */
+    #updateOverlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 9999;
+      padding: 18px;
+    }
+    #updateOverlay.show { display: flex; }
+    #updateCard {
+      width: min(520px, 100%);
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(10,10,10,0.92);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    #updateTitle { font-weight: 950; font-size: 16px; margin: 0 0 6px 0; }
+    #updateDesc { color: var(--muted); font-size: 13px; margin: 0 0 14px 0; line-height: 1.35; }
+    #updateActions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+    #updateActions .btn {
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 950;
+      font-size: 13px;
+    }
+    #updateActions .btn:hover { background: rgba(255, 255, 255, 0.10); }
+    #updateActions .btn:active { transform: scale(0.98); }
+
     .page { display: none; }
     .page.active { display: block; }
     .cardTitle h1 { margin: 0 0 10px 0; font-size: 18px; font-weight: 950; letter-spacing: 0.2px; }
@@ -1002,7 +1040,7 @@
     <div id="offlineBanner" class="offlineBanner hidden" role="status" aria-live="polite">Offline. Sync paused.</div>
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-  <script src="./pouchdb.min.js" onerror="(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/pouchdb@9.0.0/dist/pouchdb.min.js';document.head.appendChild(s);})();"></script>
+  <script src="./pouchdb.min.js"></script>
 
   <script>
     (function () {
@@ -3821,10 +3859,64 @@ if (state === "READY_P") {
           let updateLock = false;
           let reloadTimer = null;
 
+          // Update overlay control functions
+          function showUpdateOverlay() {
+            const overlay = document.getElementById('updateOverlay');
+            if (overlay) {
+              overlay.classList.add('show');
+            }
+          }
+
+          function hideUpdateOverlay() {
+            const overlay = document.getElementById('updateOverlay');
+            if (overlay) {
+              overlay.classList.remove('show');
+            }
+          }
+
+          function reloadForUpdate() {
+            try { localStorage.setItem(UPDATE_TOAST_FLAG, "1"); } catch (e) { console.error(e); }
+            hideUpdateOverlay();
+            if (window.__swReloaded) return;
+            window.__swReloaded = true;
+            try { location.reload(true); } catch (e) { location.reload(); }
+          }
+
+          // Setup update overlay button handlers
+          try {
+            const btnUpdateLater = document.getElementById('btnUpdateLater');
+            const btnUpdateReload = document.getElementById('btnUpdateReload');
+            
+            if (btnUpdateLater) {
+              btnUpdateLater.addEventListener('click', () => {
+                hideUpdateOverlay();
+                toast('Update postponed. Refresh when ready.', 4000);
+              });
+            }
+            
+            if (btnUpdateReload) {
+              btnUpdateReload.addEventListener('click', reloadForUpdate);
+            }
+          } catch (e) {
+            console.error('Update overlay setup error:', e);
+          }
+
           function autoUpdate() {
             // Atomic check-and-set to prevent concurrent updates
             if (updateLock) return;
             updateLock = true;
+
+            // SESSION-AWARE UPDATE: Don't interrupt active breathing sessions
+            // Check if state is not IDLE (RUN_M, READY_M, READY_P, AUTO)
+            if (typeof state !== 'undefined' && state && state !== 'IDLE') {
+              console.log('Update available but session active - showing overlay instead of auto-reload');
+              try {
+                showUpdateOverlay();
+              } catch (e) {
+                console.error('Failed to show update overlay:', e);
+              }
+              return;
+            }
 
             const w = reg.waiting || reg.installing || null;
             
@@ -3944,6 +4036,17 @@ if (state === "READY_P") {
       console.log('ButeBreath initialized with cleanup handlers');
     })();
   </script>
+
+  <div id="updateOverlay" role="dialog" aria-modal="true" aria-labelledby="updateTitle">
+    <div id="updateCard">
+      <p id="updateTitle">Update available</p>
+      <p id="updateDesc">Refresh to load the new version. Your local data stays on this device.</p>
+      <div id="updateActions">
+        <div id="btnUpdateLater" class="btn">Later</div>
+        <div id="btnUpdateReload" class="btn">Refresh</div>
+      </div>
+    </div>
+  </div>
 
 
 
