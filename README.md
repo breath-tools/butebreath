@@ -146,4 +146,3 @@ This project bundles the following third-party software:
 * Project: PouchDB
 * Version: 9.0.0
 * License: Apache License 2.0
-* Copyright: 2012-2024 Dale Harvey and the PouchDB team
