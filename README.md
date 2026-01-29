@@ -128,7 +128,7 @@ To enable multi-device sync, you need your own CouchDB instance with the followi
 
 ## Project status
 
-This is a hobby project. It may be minimally maintained and inactive for periods of time. Use at your own risk. PRs are welcome.
+This is a **vibe-coded** hobby project. It may be minimally maintained and inactive for periods of time. Use at your own risk. PRs are welcome.
 
 ---
 
