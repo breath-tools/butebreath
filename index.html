@@ -2588,6 +2588,10 @@ function scheduleHistoryChartsRender() {
               }
               if (outHolds.length) res.holds = outHolds;
             }
+            
+            // Preserve totalTime if present
+            const totalTime = num(x.totalTime);
+            const finalTotalTime = (totalTime != null && totalTime >= 0) ? Math.round(totalTime * 10) / 10 : null;
 
             return {
               _id: sid,
@@ -2595,7 +2599,8 @@ function scheduleHistoryChartsRender() {
               startAtEpochMs: start,
               createdAt,
               method,
-              results: res
+              results: res,
+              ...(finalTotalTime != null && { totalTime: finalTotalTime })
             };
           };
 
@@ -2712,6 +2717,20 @@ function scheduleHistoryChartsRender() {
           const mLabel = (s.method === "M1") ? "Method 1" : (s.method === "M2") ? "Method 2" : "Morning CP";
           const r = (s.results || {});
           const parts = [];
+          
+          // Add total time FIRST if available (but not for Morning CP - it's redundant)
+          if (s.method !== "CP") {
+            const totalTime = numOrNull(s.totalTime);
+            if (totalTime != null && totalTime > 0) {
+              const minutes = Math.floor(totalTime / 60);
+              const seconds = Math.round(totalTime % 60);
+              if (minutes > 0) {
+                parts.push(`Dur. ${minutes}m ${seconds}s`);
+              } else {
+                parts.push(`Dur. ${seconds}s`);
+              }
+            }
+          }
 
           const pulseStart = numOrNull(r.pulseStartBpm);
           const pulseEnd = numOrNull(r.pulseEndBpm);
@@ -3554,6 +3573,34 @@ el.cue.textContent = s.c;
         el.startBtn.textContent = "Start timer";
       }
 
+      function calculateTotalTime(flow, sessionResults) {
+        let total = 0;
+        
+        // Sum auto-timed steps (type "A")
+        if (Array.isArray(flow)) {
+          flow.forEach(step => {
+            if (step && step.t === "A" && typeof step.d === "number") {
+              total += step.d;
+            }
+          });
+        }
+        
+        // Sum manual holds and CP measurements
+        if (sessionResults && typeof sessionResults === "object") {
+          if (typeof sessionResults.cpStartSec === "number") total += sessionResults.cpStartSec;
+          if (typeof sessionResults.cpEndSec === "number") total += sessionResults.cpEndSec;
+          if (typeof sessionResults.morningCpSec === "number") total += sessionResults.morningCpSec;
+          
+          if (Array.isArray(sessionResults.holds)) {
+            sessionResults.holds.forEach(h => {
+              if (h && typeof h.sec === "number") total += h.sec;
+            });
+          }
+        }
+        
+        return Math.round(total * 10) / 10; // Round to 1 decimal
+      }
+
             async function saveAndFinish() {
         // Race condition guard: prevent duplicate session saves
         if (sessionCompletionLock) {
@@ -3565,10 +3612,18 @@ el.cue.textContent = s.c;
         
         try {
           const now = Date.now();
+          
+          // Calculate total time
+          const totalTime = calculateTotalTime(flow, sessionResults);
+          
+          // Calculate actual start time (completion time - total duration)
+          const actualStartTime = now - (totalTime * 1000);
+          
           const session = {
-            startAtEpochMs: now,
+            startAtEpochMs: actualStartTime,  // Actual start time
             method: curMethod,
-            results: sessionResults
+            results: sessionResults,
+            totalTime: totalTime
           };
           
           try { 
