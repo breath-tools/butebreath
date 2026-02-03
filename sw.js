@@ -11,7 +11,7 @@
    - Page listens for waiting SW and shows an overlay to let user refresh
 */
 
-const CACHE_VERSION = 13; // Increment this manually on each deploy
+const CACHE_VERSION = 14; // Increment this manually on each deploy
 const CACHE = `butebreath_cache_v${CACHE_VERSION}`;
 // Core assets required for the app shell to boot offline.
 const PRECACHE_CORE = [
