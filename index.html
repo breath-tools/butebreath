@@ -165,6 +165,46 @@
     .s-item input { width: 100%; background: transparent; border: none; color: var(--accent); font-size: 15px; text-align: center; font-weight: 800; outline: none; }
     .s-item input:focus-visible { box-shadow: none; }
 
+    /* Landscape tablet optimization */
+    @media (orientation: landscape) and (min-width: 768px) and (max-width: 1366px) and (max-height: 1024px) {
+      .shell {
+        gap: 10px;
+        padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+      }
+      
+      .ringWrap {
+        width: clamp(220px, 48vh, 300px);
+      }
+      
+      .stage {
+        padding: 12px 12px 10px 12px;
+        gap: 8px;
+      }
+      
+      .cue {
+        font-size: 26px;
+      }
+      
+      .subCue {
+        font-size: 14px;
+        min-height: 40px;
+        margin-top: 6px;
+      }
+      
+      .timerLabel {
+        font-size: 16px;
+        margin-top: 3px;
+      }
+      
+      .selector {
+        margin-bottom: 8px;
+      }
+      
+      button {
+        padding: 11px 10px;
+      }
+    }
+
     /* Update available overlay */
     #updateOverlay {
       position: fixed;
